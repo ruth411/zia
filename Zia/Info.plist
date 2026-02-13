@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- URL Schemes for OAuth callbacks -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.yourcompany.Zia</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.yourcompany.zia</string>
+			</array>
+		</dict>
+	</array>
+
+	<!-- Permission Usage Descriptions -->
+	<key>NSCalendarsUsageDescription</key>
+	<string>Zia needs access to your calendar to create, view, and manage events.</string>
+
+	<key>NSRemindersUsageDescription</key>
+	<string>Zia needs access to your reminders to create and manage tasks.</string>
+
+	<!-- App Transport Security (allow HTTPS connections) -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+	</dict>
+
+	<!-- App Category -->
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.productivity</string>
+
+	<!-- UI Element (hide from dock by default - handled in code) -->
+	<key>LSUIElement</key>
+	<false/>
+</dict>
+</plist>
