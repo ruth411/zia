@@ -152,7 +152,7 @@ struct Configuration {
         /// Backend API base URL (defaults to Railway deployment URL)
         static var baseURL: String {
             UserDefaults.standard.string(forKey: baseURLKey)
-                ?? "https://zia-backend-production.up.railway.app"
+                ?? "https://zia-production-e66b.up.railway.app"
         }
 
         static func setBaseURL(_ url: String) {
