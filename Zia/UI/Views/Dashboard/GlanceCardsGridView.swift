@@ -1,0 +1,23 @@
+//
+//  GlanceCardsGridView.swift
+//  Zia
+//
+//  Created by Claude on 2/14/26.
+//
+
+import SwiftUI
+
+/// Horizontal row of glance capability cards (app-icon style)
+struct GlanceCardsGridView: View {
+    let cards: [GlanceCard]
+
+    var body: some View {
+        HStack(spacing: 16) {
+            ForEach(cards) { card in
+                GlanceCardView(card: card)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+    }
+}

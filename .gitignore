@@ -1,0 +1,31 @@
+# Xcode
+DerivedData/
+*.xcuserdata/
+*.xcworkspace/
+xcuserdata/
+build/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Secrets — NEVER commit
+Secrets.plist
+*.env
+.env.*
+
+# Swift Package Manager
+.build/
+Packages/
+Package.resolved
+
+# CocoaPods
+Pods/
+
+# IDE
+*.swp
+*.swo
+*~
+.idea/
+*.xccheckout

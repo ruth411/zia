@@ -2,33 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- App Sandbox -->
-	<key>com.apple.security.app-sandbox</key>
-	<true/>
-
-	<!-- Network Client (required for API calls) -->
+	<!-- Network Client (required for OAuth and API calls) -->
 	<key>com.apple.security.network.client</key>
 	<true/>
-
-	<!-- Keychain Access Groups (for OAuth tokens) -->
-	<key>keychain-access-groups</key>
-	<array>
-		<string>$(AppIdentifierPrefix)com.yourcompany.Zia</string>
-	</array>
-
-	<!-- iCloud (for CloudKit sync) -->
-	<key>com.apple.developer.icloud-container-identifiers</key>
-	<array>
-		<string>iCloud.com.yourcompany.Zia</string>
-	</array>
-	<key>com.apple.developer.icloud-services</key>
-	<array>
-		<string>CloudKit</string>
-	</array>
-
-	<!-- User Selected Files (if we need to read/write files later) -->
-	<!-- <key>com.apple.security.files.user-selected.read-write</key> -->
-	<!-- <true/> -->
 
 	<!-- Calendar Access (for Apple Calendar integration) -->
 	<key>com.apple.security.personal-information.calendars</key>

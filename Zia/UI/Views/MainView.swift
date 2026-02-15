@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-/// Main view displayed in the menu bar popover
+/// Main dashboard view displayed in the menu bar popover
 struct MainView: View {
 
     // MARK: - Environment
@@ -16,132 +16,113 @@ struct MainView: View {
 
     // MARK: - State
 
-    @State private var messageText: String = ""
+    @StateObject private var dashboardViewModel: DashboardViewModel
+    @State private var showOnboarding = !Configuration.Onboarding.isCompleted
+
+    // MARK: - Initialization
+
+    init() {
+        let container = DependencyContainer.shared
+        let chatVM = ChatViewModel(
+            aiProvider: container.aiProvider,
+            conversationManager: container.conversationManager,
+            ragService: container.ragService
+        )
+        _dashboardViewModel = StateObject(
+            wrappedValue: DashboardViewModel(chatViewModel: chatVM)
+        )
+    }
 
     // MARK: - Body
 
     var body: some View {
+        if showOnboarding {
+            OnboardingView {
+                showOnboarding = false
+            }
+        } else {
+            dashboardContent
+        }
+    }
+
+    private var dashboardContent: some View {
         VStack(spacing: 0) {
-            // Header
-            headerView
+            // Section 1: Header
+            DashboardHeaderView(onSettingsTapped: openSettings)
 
-            Divider()
+            // Section 2: Category tabs
+            TabPillsView(selectedCategory: $dashboardViewModel.selectedCategory)
 
-            // Chat area (placeholder for Phase 3)
-            chatPlaceholderView
+            // Sections 3-4: Scrollable content
+            ScrollView {
+                VStack(spacing: 12) {
+                    // Section 3: Glance cards (horizontal row)
+                    GlanceCardsGridView(
+                        cards: dashboardViewModel.filteredGlanceCards
+                    )
 
-            Divider()
+                    // Section 4: Action feed
+                    if dashboardViewModel.actionFeedItems.isEmpty {
+                        emptyFeedView
+                    } else {
+                        ActionFeedView(
+                            items: dashboardViewModel.actionFeedItems,
+                            onDismiss: { id in
+                                dashboardViewModel.dismissFeedItem(id)
+                            }
+                        )
+                    }
+                }
+                .padding(.top, 4)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // Input area
-            inputView
+            // Section 5: Input bar
+            InputBarView(
+                inputText: $dashboardViewModel.inputText,
+                isLoading: dashboardViewModel.isLoading,
+                onSend: {
+                    Task { await dashboardViewModel.sendMessage() }
+                }
+            )
         }
         .frame(
             width: Configuration.App.popoverWidth,
             height: Configuration.App.popoverHeight
         )
+        .background(.ultraThinMaterial)
+        .alert("Error", isPresented: .constant(dashboardViewModel.errorMessage != nil)) {
+            Button("OK") {
+                dashboardViewModel.dismissError()
+            }
+        } message: {
+            if let errorMessage = dashboardViewModel.errorMessage {
+                Text(errorMessage)
+            }
+        }
     }
 
     // MARK: - Subviews
 
-    private var headerView: some View {
-        HStack {
-            Image(systemName: "atom")
-                .font(.title2)
-                .foregroundColor(.blue)
-
-            Text("Zia")
-                .font(.title2)
-                .fontWeight(.semibold)
-
-            Spacer()
-
-            Button(action: openSettings) {
-                Image(systemName: "gearshape")
-                    .font(.title3)
-            }
-            .buttonStyle(.plain)
-            .help("Settings")
-
-            Button(action: quitApp) {
-                Image(systemName: "xmark.circle")
-                    .font(.title3)
-            }
-            .buttonStyle(.plain)
-            .help("Quit Zia")
-        }
-        .padding()
-    }
-
-    private var chatPlaceholderView: some View {
-        VStack {
-            Spacer()
-
-            Image(systemName: "atom")
-                .font(.system(size: 60))
-                .foregroundColor(.gray.opacity(0.3))
-
-            Text("Welcome to Zia")
-                .font(.title)
-                .fontWeight(.semibold)
-                .padding(.top)
-
-            Text("Your AI personal assistant")
+    private var emptyFeedView: some View {
+        VStack(spacing: 8) {
+            Text("Ask Zia anything!")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
-
-            Text("Chat integration coming in Phase 3...")
+            Text("Your responses will appear here")
                 .font(.caption)
-                .foregroundColor(.blue)
-                .padding(.top, 8)
-
-            Spacer()
+                .foregroundColor(.secondary.opacity(0.7))
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(NSColor.controlBackgroundColor))
-    }
-
-    private var inputView: some View {
-        HStack(spacing: 12) {
-            TextField("Ask Zia anything...", text: $messageText)
-                .textFieldStyle(.plain)
-                .padding(10)
-                .background(Color(NSColor.textBackgroundColor))
-                .cornerRadius(8)
-                .disabled(true) // Disabled until Phase 3
-
-            Button(action: sendMessage) {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.title2)
-                    .foregroundColor(.blue)
-            }
-            .buttonStyle(.plain)
-            .disabled(true) // Disabled until Phase 3
-            .help("Send message")
-        }
-        .padding()
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
     }
 
     // MARK: - Actions
 
-    private func sendMessage() {
-        // TODO: Phase 3 - Send message to Claude API
-        print("📤 Send message: \(messageText)")
-        messageText = ""
-    }
-
     private func openSettings() {
-        // TODO: Phase 2 - Open settings window
-        print("⚙️ Open settings")
-        let alert = NSAlert()
-        alert.messageText = "Settings"
-        alert.informativeText = "Settings UI will be implemented in Phase 2 (Authentication)"
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
-    }
-
-    private func quitApp() {
-        NSApplication.shared.terminate(nil)
+        if let appDelegate = dependencyContainer.appDelegate as? AppDelegate {
+            appDelegate.showSettings()
+        }
     }
 }
 

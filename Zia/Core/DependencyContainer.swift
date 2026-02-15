@@ -16,17 +16,25 @@ class DependencyContainer: ObservableObject {
 
     static let shared = DependencyContainer()
 
+    // MARK: - App Delegate Reference
+
+    weak var appDelegate: AnyObject?
+
     // MARK: - Services (will be implemented in later phases)
 
     // Phase 2: Authentication
-    // lazy var keychainService: KeychainService = KeychainService()
-    // lazy var authenticationManager: AuthenticationManager = AuthenticationManager(keychainService: keychainService)
+    lazy var keychainService: KeychainService = KeychainService()
+    lazy var authenticationManager: AuthenticationManager = AuthenticationManager(keychainService: keychainService)
+    lazy var backendAuthService: BackendAuthService = BackendAuthService(keychainService: keychainService)
 
-    // Phase 3: AI
-    // lazy var claudeService: ClaudeService = ClaudeService(keychainService: keychainService)
+    // Phase 3: AI (uses factory to select Claude or OpenAI based on user config)
+    lazy var aiProvider: AIProvider = AIServiceFactory.createProvider(keychainService: keychainService)
+    lazy var claudeService: ClaudeService = ClaudeService(keychainService: keychainService)
+    lazy var conversationStore: ConversationStore = ConversationStore()
+    lazy var ragService: RAGService = RAGService()
+    lazy var conversationManager: ConversationManager = ConversationManager(ragService: ragService)
     // lazy var toolRegistry: ToolRegistry = ToolRegistry()
     // lazy var toolExecutor: ToolExecutor = ToolExecutor(registry: toolRegistry)
-    // lazy var conversationManager: ConversationManager = ConversationManager()
 
     // Phase 4: Capabilities
     // lazy var capabilityManager: CapabilityManager = CapabilityManager(toolRegistry: toolRegistry)
@@ -62,6 +70,9 @@ class DependencyContainer: ObservableObject {
     /// Initialize services that need setup on app launch
     func initialize() async {
         print("🚀 Initializing services...")
+
+        // Initialize RAG search index (auto-reindexes if needed)
+        try? ragService.initialize(conversationStore: conversationStore)
 
         // Phase 2: Initialize authentication
         // await authenticationManager.initialize()
