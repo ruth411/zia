@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Bundle Information -->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+
+	<!-- URL Schemes for OAuth callbacks -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.ruthwikdovala.Zia</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.ruthwikdovala.zia</string>
+			</array>
+		</dict>
+	</array>
+
+	<!-- Permission Usage Descriptions -->
+	<key>NSCalendarsUsageDescription</key>
+	<string>Zia needs access to your calendar to create, view, and manage events.</string>
+
+	<key>NSRemindersUsageDescription</key>
+	<string>Zia needs access to your reminders to create and manage tasks.</string>
+
+	<!-- App Transport Security (allow HTTPS connections) -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+	</dict>
+
+	<!-- App Category -->
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.productivity</string>
+
+	<!-- UI Element (hide from dock by default - handled in code) -->
+	<key>LSUIElement</key>
+	<false/>
+</dict>
+</plist>
