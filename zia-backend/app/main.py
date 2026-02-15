@@ -57,3 +57,33 @@ app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 async def health_check():
     """Health check endpoint for Railway."""
     return {"status": "ok"}
+
+
+@app.get("/debug/config")
+async def debug_config():
+    """Temporary debug endpoint to check config resolution."""
+    import os
+    from urllib.parse import urlparse
+    from app.config import settings
+
+    raw_env = os.environ.get("DATABASE_URL", "NOT SET")
+    resolved = settings.database_url
+
+    # Mask credentials
+    try:
+        parsed = urlparse(resolved)
+        masked_resolved = f"{parsed.scheme}://***@{parsed.hostname}:{parsed.port}{parsed.path}"
+    except Exception:
+        masked_resolved = resolved[:40] + "..."
+
+    try:
+        parsed_raw = urlparse(raw_env)
+        masked_raw = f"{parsed_raw.scheme}://***@{parsed_raw.hostname}:{parsed_raw.port}{parsed_raw.path}"
+    except Exception:
+        masked_raw = raw_env[:40] + "..." if raw_env != "NOT SET" else "NOT SET"
+
+    return {
+        "raw_env_DATABASE_URL": masked_raw,
+        "resolved_settings_database_url": masked_resolved,
+        "jwt_secret_set": settings.jwt_secret != "dev-secret-change-in-production",
+    }
