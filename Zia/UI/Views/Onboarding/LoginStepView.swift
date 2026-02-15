@@ -97,14 +97,6 @@ struct LoginStepView: View {
             .disabled(isLoading || !isFormValid)
 
             Spacer()
-
-            // Skip button
-            Button("Skip for now") {
-                onNext()
-            }
-            .font(.caption)
-            .foregroundColor(.secondary)
-            .padding(.bottom, 32)
         }
     }
 

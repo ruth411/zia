@@ -29,8 +29,8 @@ struct CompletionStepView: View {
             VStack(alignment: .leading, spacing: 12) {
                 summaryRow(
                     icon: "brain.head.profile",
-                    title: "AI Provider",
-                    value: viewModel.selectedAIProvider.displayName,
+                    title: "AI Assistant",
+                    value: "Claude (Powered by Zia)",
                     isConfigured: true
                 )
 

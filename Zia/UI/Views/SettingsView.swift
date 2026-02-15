@@ -39,13 +39,8 @@ struct SettingsView: View {
             // Content
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    // Account section (Apple ID)
+                    // Account section
                     appleAccountSection
-
-                    Divider()
-
-                    // AI Provider section
-                    aiProviderSection
 
                     Divider()
 
@@ -151,42 +146,6 @@ struct SettingsView: View {
             )
         }
         .frame(width: 360, height: 480)
-    }
-
-    private var aiProviderSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("AI Provider")
-                .font(.headline)
-
-            // Current provider info
-            HStack(spacing: 8) {
-                Image(systemName: viewModel.currentAIProvider.iconName)
-                    .foregroundColor(.blue)
-                Text(viewModel.currentAIProvider.displayName)
-                    .font(.subheadline.weight(.medium))
-                Spacer()
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.green)
-            }
-            .padding()
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(8)
-
-            // API Key
-            VStack(alignment: .leading, spacing: 8) {
-                Text("\(viewModel.currentAIProvider.displayName) API Key")
-                    .font(.subheadline.weight(.medium))
-
-                SecureField("Enter API key", text: $viewModel.claudeAPIKey)
-                    .textFieldStyle(.roundedBorder)
-            }
-
-            Button("Save API Key") {
-                viewModel.saveAPIKey()
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(viewModel.claudeAPIKey.isEmpty)
-        }
     }
 
     private var accountsSection: some View {
@@ -309,7 +268,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("All data stored locally")
                         .font(.subheadline.weight(.medium))
-                    Text("API keys, conversations, and preferences are stored on your Mac only.")
+                    Text("Conversations and preferences are stored on your Mac only.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -420,7 +379,6 @@ class SettingsViewModel: ObservableObject {
 
     @Published var isSpotifyConnected = false
     @Published var isConnectingSpotify = false
-    @Published var claudeAPIKey = ""
     @Published var isBackendLoggedIn = false
     @Published var backendUser: BackendUser?
     @Published var showLoginSheet = false
@@ -429,27 +387,15 @@ class SettingsViewModel: ObservableObject {
     @Published var isReindexing = false
 
     private let authManager: AuthenticationManager
-    private let keychainService = KeychainService()
     private let backendAuthService = DependencyContainer.shared.backendAuthService
     private let ragService = DependencyContainer.shared.ragService
     private let conversationStore = DependencyContainer.shared.conversationStore
-
-    var currentAIProvider: AIProviderType {
-        let stored = UserDefaults.standard.string(forKey: Configuration.Onboarding.aiProviderKey) ?? "claude"
-        return AIProviderType(rawValue: stored) ?? .claude
-    }
 
     init(authManager: AuthenticationManager) {
         self.authManager = authManager
 
         // Load authentication status
         self.isSpotifyConnected = authManager.isSpotifyAuthenticated
-
-        // Load API key
-        let keyName = currentAIProvider == .claude ? "claude_api_key" : "openai_api_key"
-        if let apiKey = try? keychainService.retrieveString(for: keyName) {
-            self.claudeAPIKey = apiKey
-        }
 
         // Load backend auth status
         self.isBackendLoggedIn = backendAuthService.isLoggedIn
@@ -469,11 +415,6 @@ class SettingsViewModel: ObservableObject {
     func disconnectSpotify() async throws {
         try await authManager.signOutSpotify()
         isSpotifyConnected = false
-    }
-
-    func saveAPIKey() {
-        let keyName = currentAIProvider == .claude ? "claude_api_key" : "openai_api_key"
-        try? keychainService.saveString(claudeAPIKey, for: keyName)
     }
 
     func logOutBackend() {

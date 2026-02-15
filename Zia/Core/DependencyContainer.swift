@@ -27,9 +27,11 @@ class DependencyContainer: ObservableObject {
     lazy var authenticationManager: AuthenticationManager = AuthenticationManager(keychainService: keychainService)
     lazy var backendAuthService: BackendAuthService = BackendAuthService(keychainService: keychainService)
 
-    // Phase 3: AI (uses factory to select Claude or OpenAI based on user config)
-    lazy var aiProvider: AIProvider = AIServiceFactory.createProvider(keychainService: keychainService)
-    lazy var claudeService: ClaudeService = ClaudeService(keychainService: keychainService)
+    // Phase 3: AI (all requests go through backend proxy)
+    lazy var aiProvider: AIProvider = AIServiceFactory.createProvider(
+        keychainService: keychainService,
+        backendAuthService: backendAuthService
+    )
     lazy var conversationStore: ConversationStore = ConversationStore()
     lazy var ragService: RAGService = RAGService()
     lazy var conversationManager: ConversationManager = ConversationManager(ragService: ragService)
