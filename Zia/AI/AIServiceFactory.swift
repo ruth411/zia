@@ -7,19 +7,17 @@
 
 import Foundation
 
-/// Factory that creates the correct AI provider based on user configuration
+/// Factory that creates the AI provider.
+/// All AI requests go through the Zia backend, which holds the Claude API key.
 struct AIServiceFactory {
 
-    /// Create the AI provider based on the user's selected provider from onboarding
-    static func createProvider(keychainService: KeychainService = KeychainService()) -> AIProvider {
-        let providerString = UserDefaults.standard.string(forKey: Configuration.Onboarding.aiProviderKey) ?? "claude"
-        let providerType = AIProviderType(rawValue: providerString) ?? .claude
-
-        switch providerType {
-        case .claude:
-            return ClaudeService(keychainService: keychainService)
-        case .openai:
-            return OpenAIService(keychainService: keychainService)
-        }
+    static func createProvider(
+        keychainService: KeychainService,
+        backendAuthService: BackendAuthService
+    ) -> AIProvider {
+        return BackendAIService(
+            keychainService: keychainService,
+            backendAuthService: backendAuthService
+        )
     }
 }

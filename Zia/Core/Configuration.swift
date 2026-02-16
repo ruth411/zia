@@ -164,7 +164,6 @@ struct Configuration {
 
     struct Onboarding {
         static let completedKey = "\(App.bundleIdentifier).onboardingCompleted"
-        static let aiProviderKey = "\(App.bundleIdentifier).aiProvider"
 
         static var isCompleted: Bool {
             UserDefaults.standard.bool(forKey: completedKey)

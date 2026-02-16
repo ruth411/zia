@@ -75,6 +75,12 @@ class DashboardViewModel: ObservableObject {
         isLoading = false
     }
 
+    /// Send a pre-defined query (from glance card tap or suggestion tap)
+    func sendQuery(_ query: String) async {
+        inputText = query
+        await sendMessage()
+    }
+
     /// Dismiss an action feed item
     func dismissFeedItem(_ id: UUID) {
         withAnimation {

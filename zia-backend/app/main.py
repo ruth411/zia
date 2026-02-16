@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.database import engine, Base
-from app.routers import auth
+from app.routers import auth, chat
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -51,6 +51,9 @@ app.add_middleware(
 
 # Auth routes
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+
+# Chat routes (Claude API proxy)
+app.include_router(chat.router, prefix="/chat", tags=["Chat"])
 
 
 @app.get("/health")

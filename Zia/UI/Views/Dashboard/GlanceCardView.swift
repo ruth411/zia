@@ -10,39 +10,50 @@ import SwiftUI
 /// Individual glance card styled like a macOS app icon
 struct GlanceCardView: View {
     let card: GlanceCard
+    let onTap: () -> Void
+
+    @State private var isPressed = false
 
     var body: some View {
-        VStack(spacing: 6) {
-            ZStack(alignment: .topTrailing) {
-                // Square icon with large rounded corners (app-icon style)
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(
-                        LinearGradient(
-                            colors: card.gradientColors,
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+        Button(action: onTap) {
+            VStack(spacing: 6) {
+                ZStack(alignment: .topTrailing) {
+                    // Square icon with large rounded corners (app-icon style)
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(
+                            LinearGradient(
+                                colors: card.gradientColors,
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
-                    .frame(width: 68, height: 68)
-                    .overlay(
-                        Image(systemName: card.iconName)
-                            .font(.system(size: 28, weight: .medium))
-                            .foregroundColor(card.iconColor)
-                    )
-                    .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
+                        .frame(width: 68, height: 68)
+                        .overlay(
+                            Image(systemName: card.iconName)
+                                .font(.system(size: 28, weight: .medium))
+                                .foregroundColor(card.iconColor)
+                        )
+                        .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
 
-                // Notification badge
-                if card.badgeCount > 0 {
-                    BadgeView(count: card.badgeCount)
-                        .offset(x: 4, y: -4)
+                    // Notification badge
+                    if card.badgeCount > 0 {
+                        BadgeView(count: card.badgeCount)
+                            .offset(x: 4, y: -4)
+                    }
                 }
-            }
 
-            // Label below the icon
-            Text(card.title)
-                .font(.system(size: 10))
-                .foregroundColor(.secondary)
+                // Label below the icon
+                Text(card.title)
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
         }
+        .buttonStyle(.plain)
+        .scaleEffect(isPressed ? 0.92 : 1.0)
+        .animation(.easeInOut(duration: 0.15), value: isPressed)
+        .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
+            isPressed = pressing
+        }, perform: {})
     }
 }
 
