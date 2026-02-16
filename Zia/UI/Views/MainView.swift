@@ -58,7 +58,10 @@ struct MainView: View {
                 VStack(spacing: 12) {
                     // Section 3: Glance cards (horizontal row)
                     GlanceCardsGridView(
-                        cards: dashboardViewModel.filteredGlanceCards
+                        cards: dashboardViewModel.filteredGlanceCards,
+                        onCardTap: { card in
+                            Task { await dashboardViewModel.sendQuery(card.actionQuery) }
+                        }
                     )
 
                     // Section 4: Action feed
@@ -77,7 +80,16 @@ struct MainView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // Section 5: Input bar
+            // Section 5: Suggestions + Input bar
+            if dashboardViewModel.actionFeedItems.isEmpty && !dashboardViewModel.isLoading {
+                SuggestionStripView(
+                    suggestions: dashboardViewModel.suggestions,
+                    onTap: { suggestion in
+                        Task { await dashboardViewModel.sendQuery(suggestion.text) }
+                    }
+                )
+            }
+
             InputBarView(
                 inputText: $dashboardViewModel.inputText,
                 isLoading: dashboardViewModel.isLoading,

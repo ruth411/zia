@@ -37,17 +37,19 @@ struct GlanceCard: Identifiable {
     let iconColor: Color
     let badgeCount: Int
     let category: DashboardCategory
+    let actionQuery: String
 
     static let placeholders: [GlanceCard] = [
         // Calendar — white card, red calendar icon (like macOS Calendar)
         GlanceCard(
             title: "Calendar",
-            subtitle: "1,231",
+            subtitle: nil,
             iconName: "calendar",
             gradientColors: [.white, Color(white: 0.93)],
             iconColor: .red,
             badgeCount: 3,
-            category: .calendar
+            category: .calendar,
+            actionQuery: "What's on my calendar today?"
         ),
         // Music — white card, pink/red music note (like Apple Music)
         GlanceCard(
@@ -57,7 +59,8 @@ struct GlanceCard: Identifiable {
             gradientColors: [.white, Color(white: 0.93)],
             iconColor: Color(red: 0.98, green: 0.18, blue: 0.35),
             badgeCount: 0,
-            category: .music
+            category: .music,
+            actionQuery: "Play some music"
         ),
         // Flight — warm orange/brown gradient, white icon
         GlanceCard(
@@ -67,7 +70,8 @@ struct GlanceCard: Identifiable {
             gradientColors: [Color(red: 0.95, green: 0.55, blue: 0.25), Color(red: 0.8, green: 0.35, blue: 0.15)],
             iconColor: .white,
             badgeCount: 0,
-            category: .flights
+            category: .flights,
+            actionQuery: "Check my upcoming flights"
         ),
         // Flight — dark card, white airplane
         GlanceCard(
@@ -77,7 +81,8 @@ struct GlanceCard: Identifiable {
             gradientColors: [Color(white: 0.15), Color(white: 0.22)],
             iconColor: .white,
             badgeCount: 1,
-            category: .flights
+            category: .flights,
+            actionQuery: "Any flight updates?"
         )
     ]
 }
