@@ -205,6 +205,66 @@ Please run the test suite before submitting (`xcodebuild test`).
 
 ---
 
+## Uninstall
+
+### Option 1 — Built-in Uninstaller (Recommended)
+
+Zia has a built-in uninstaller that removes the app and all associated data in one step.
+
+1. Click the Zia icon in your menu bar → **Settings**
+2. Scroll to **Danger Zone** at the bottom
+3. Click **Uninstall...** → confirm
+
+This removes:
+- The app bundle (`/Applications/Zia.app`)
+- All conversations and the RAG search index
+- All preferences and settings
+- Your API key and Spotify tokens from Keychain
+- The `~/.zia/` directory (MCP config, automations)
+- All cached data
+
+### Option 2 — Manual Removal
+
+If you prefer to do it yourself, run these commands in Terminal:
+
+```bash
+# Quit Zia first
+pkill -x Zia 2>/dev/null
+
+# Remove the app
+rm -rf /Applications/Zia.app
+
+# Remove app data
+rm -rf ~/Library/Application\ Support/com.ruthwikdovala.Zia
+
+# Remove config and automations
+rm -rf ~/.zia
+
+# Remove cached data
+rm -rf ~/Library/Caches/com.ruthwikdovala.Zia
+
+# Remove preferences
+defaults delete com.ruthwikdovala.Zia 2>/dev/null
+
+# Remove Keychain entries (opens Keychain Access — search "ruthwikdovala.Zia" and delete)
+open /System/Applications/Utilities/Keychain\ Access.app
+```
+
+> To remove Keychain entries without opening Keychain Access, you can use the `security` CLI:
+> ```bash
+> security delete-generic-password -s com.ruthwikdovala.Zia 2>/dev/null
+> ```
+
+### Removing Launch at Login
+
+If you enabled "Launch at Login", disable it before uninstalling:
+Zia → Settings → General → **Launch Zia at Login** → toggle OFF
+
+Or remove it manually:
+System Settings → General → Login Items → find Zia → click **−**
+
+---
+
 ## License
 
 MIT — see [LICENSE](LICENSE) for details.
@@ -214,4 +274,3 @@ MIT — see [LICENSE](LICENSE) for details.
 <div align="center">
   <sub>Built for macOS with Swift and SwiftUI. Claude AI assistance was used during development to improve code quality and accelerate iteration.</sub>
 </div>
-
