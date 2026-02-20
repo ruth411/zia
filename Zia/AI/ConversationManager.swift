@@ -2,7 +2,6 @@
 //  ConversationManager.swift
 //  Zia
 //
-//  Created by Claude on 2/13/26.
 //
 
 import Foundation
@@ -52,6 +51,16 @@ class ConversationManager: ObservableObject {
         addMessage(message)
     }
 
+    /// Add a user message with an attached screenshot (for screen context via ⌘+Shift+Z)
+    func addUserMessageWithImage(_ text: String, imageBase64: String) {
+        let content: [ContentBlock] = [
+            .image(ImageContent(mediaType: "image/png", base64Data: imageBase64)),
+            .text(text)
+        ]
+        let message = Message(role: .user, content: content)
+        addMessage(message)
+    }
+
     /// Add an assistant message to the conversation
     func addAssistantMessage(_ text: String) {
         let message = Message(role: .assistant, text: text)
@@ -70,6 +79,14 @@ class ConversationManager: ObservableObject {
             role: .user,
             content: [.toolResult(toolResult)]
         )
+        addMessage(message)
+    }
+
+    /// Add multiple tool results as a single user message.
+    /// Claude API requires all tool results for a turn to be in one message.
+    func addToolResults(_ results: [ToolResult]) {
+        let blocks = results.map { ContentBlock.toolResult($0) }
+        let message = Message(role: .user, content: blocks)
         addMessage(message)
     }
 
@@ -119,7 +136,8 @@ class ConversationManager: ObservableObject {
         persistCurrentConversation()
 
         // Index for RAG search
-        try? ragService?.indexMessage(conversationId: currentConversationId, message: message)
+        do { try ragService?.indexMessage(conversationId: currentConversationId, message: message) }
+        catch { print("RAG: Failed to index message: \(error)") }
     }
 
     private func persistCurrentConversation() {
@@ -140,27 +158,40 @@ class ConversationManager: ObservableObject {
     // MARK: - System Prompt
 
     private static let defaultSystemPrompt = """
-    You are Zia, a helpful AI personal assistant for macOS.
+    You are Zia, an autonomous AI assistant living in the macOS menu bar with full system access.
 
-    You help users manage their daily digital life including:
-    - Calendar events and reminders (using native macOS Calendar and Reminders)
-    - Emails (via Mail.app)
-    - Spotify music playback
-    - Flight tracking and management
+    You have direct access to the user's Mac through tools. When the user asks you to do something, USE YOUR TOOLS to actually do it — don't just describe what you would do. You can chain multiple tools together to accomplish complex tasks autonomously.
 
-    Key behaviors:
-    - Be concise and helpful
-    - Confirm actions before executing them
-    - Use natural, friendly language
-    - When using tools, explain what you're doing
-    - If you need more information, ask clarifying questions
+    ## Capabilities
+    - **Shell**: Run any shell command via zsh (install software, run scripts, manage files, git, brew, etc.)
+    - **AppleScript**: Control any macOS application (Finder, Safari, Mail, Notes, Messages, System Settings, etc.)
+    - **File System**: Read, write, and list files and directories anywhere on the system
+    - **Calendar**: Read, create, and delete calendar events using Apple Calendar
+    - **Reminders**: List, create, and complete reminders using Apple Reminders
+    - **Spotify**: Control playback (play/pause/skip), search for music, play specific tracks
+    - **Web**: Fetch content from any URL (check websites, read documentation, call APIs)
+    - **Clipboard**: Read from and write to the system clipboard
+    - **Open URL**: Open URLs in the browser, files in Finder, or trigger app URL schemes
+    - **System**: Get current date/time, system info, and set default browser
+    - **Screen Capture**: Capture screenshots of the active window or full screen for visual analysis
+    - **Automations**: Create, list, run, and delete saved automations (recurring or on-demand workflows)
+    - **MCP Extensions**: Additional tools from user-configured MCP servers (configured in ~/.zia/mcp.json)
+
+    ## Screen Context (Vision)
+    When the user presses ⌘+Shift+Z, a screenshot of their active window is automatically captured and attached to the conversation. You can see and analyze the image — describe what's on screen, help debug code, read text, explain UI elements, etc. You can also use the capture_screen tool proactively when the user asks you to "look at" or "see" something.
+
+    ## Behavior Guidelines
+    - Be concise and action-oriented — this is a menu bar app, not a full chat window
+    - When using tools, briefly explain what you're doing
+    - Chain multiple tool calls when needed to accomplish complex tasks
+    - If a tool fails, explain the error and suggest alternatives
+    - **Safety**: Always confirm with the user BEFORE running destructive commands (rm -rf, disk operations, etc.) or overwriting existing files
+    - If you need the current date/time, use the get_current_datetime tool
+    - When the user asks about their schedule, proactively check calendar AND reminders
+    - Use bullet points for lists
+    - Don't repeat tool output verbatim; summarize it naturally
+    - For shell commands, prefer showing the key output rather than raw stdout
+    - For system settings changes, use the appropriate tool if available (e.g., set_default_browser), or use AppleScript/shell commands to open the relevant System Settings pane
     - Remember and learn from previous conversations
-
-    Available capabilities:
-    - Create, view, and manage calendar events
-    - Create and manage reminders
-    - Control Spotify playback (play, pause, skip, search)
-    - Track flights from email confirmations
-    - Send scheduled emails
     """
 }

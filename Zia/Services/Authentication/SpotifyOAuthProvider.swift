@@ -2,7 +2,6 @@
 //  SpotifyOAuthProvider.swift
 //  Zia
 //
-//  Created by Claude on 2/13/26.
 //
 
 import Foundation
@@ -39,7 +38,9 @@ class SpotifyOAuthProvider: OAuthProvider {
         print("🔑 State: \(state)")
 
         // Build authorization URL
-        var components = URLComponents(string: authorizationEndpoint)!
+        guard var components = URLComponents(string: authorizationEndpoint) else {
+            throw OAuthError.invalidResponse
+        }
         components.queryItems = [
             URLQueryItem(name: "client_id", value: clientID),
             URLQueryItem(name: "response_type", value: "code"),
@@ -63,16 +64,26 @@ class SpotifyOAuthProvider: OAuthProvider {
         return try await withCheckedThrowingContinuation { continuation in
             self.authenticationContinuation = continuation
 
-            print("⏳ Waiting for OAuth callback...")
-
             // Register for URL callback
             NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("SpotifyOAuthCallback"),
+                forName: Configuration.Keys.Notifications.spotifyOAuthCallback,
                 object: nil,
                 queue: .main
             ) { [weak self] notification in
-                print("📨 Received OAuth callback notification")
                 self?.handleCallback(notification, expectedState: state)
+            }
+
+            // 5-minute timeout: cancel the continuation if user never completes OAuth
+            Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 5 * 60 * 1_000_000_000)
+                guard let self, let pending = self.authenticationContinuation else { return }
+                self.authenticationContinuation = nil
+                NotificationCenter.default.removeObserver(
+                    self,
+                    name: Configuration.Keys.Notifications.spotifyOAuthCallback,
+                    object: nil
+                )
+                pending.resume(throwing: OAuthError.timeout)
             }
         }
     }
@@ -80,28 +91,23 @@ class SpotifyOAuthProvider: OAuthProvider {
     /// Handle OAuth callback from URL scheme
     func handleCallback(_ notification: Notification, expectedState: String) {
         // Remove observer to prevent duplicate calls
-        NotificationCenter.default.removeObserver(self, name: NSNotification.Name("SpotifyOAuthCallback"), object: nil)
+        NotificationCenter.default.removeObserver(self, name: Configuration.Keys.Notifications.spotifyOAuthCallback, object: nil)
 
         guard let userInfo = notification.userInfo,
               let url = userInfo["url"] as? URL else {
-            print("❌ Invalid callback - no URL in notification")
             authenticationContinuation?.resume(throwing: OAuthError.invalidResponse)
             return
         }
 
-        print("✅ Received callback URL: \(url.absoluteString)")
-
         // Parse URL components
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               let queryItems = components.queryItems else {
-            print("❌ Failed to parse URL components")
             authenticationContinuation?.resume(throwing: OAuthError.invalidResponse)
             return
         }
 
         // Check for error
         if let error = queryItems.first(where: { $0.name == "error" })?.value {
-            print("❌ OAuth error from Spotify: \(error)")
             if error == "access_denied" {
                 authenticationContinuation?.resume(throwing: OAuthError.userCancelled)
             } else {
@@ -113,9 +119,6 @@ class SpotifyOAuthProvider: OAuthProvider {
         // Verify state (CSRF protection)
         guard let state = queryItems.first(where: { $0.name == "state" })?.value,
               state == expectedState else {
-            print("❌ State mismatch - possible CSRF attack")
-            print("   Expected: \(expectedState)")
-            print("   Received: \(queryItems.first(where: { $0.name == "state" })?.value ?? "nil")")
             authenticationContinuation?.resume(throwing: OAuthError.invalidResponse)
             return
         }
@@ -137,17 +140,25 @@ class SpotifyOAuthProvider: OAuthProvider {
             do {
                 let token = try await self.exchangeCodeForToken(code)
                 print("✅ Successfully obtained access token")
-                self.authenticationContinuation?.resume(returning: token)
+                // Nil out before resuming to prevent double-resume if timeout fires concurrently
+                let pending = self.authenticationContinuation
+                self.authenticationContinuation = nil
+                pending?.resume(returning: token)
             } catch {
                 print("❌ Failed to exchange code for token: \(error)")
-                self.authenticationContinuation?.resume(throwing: error)
+                let pending = self.authenticationContinuation
+                self.authenticationContinuation = nil
+                pending?.resume(throwing: error)
             }
         }
     }
 
     /// Exchange authorization code for access token
     private func exchangeCodeForToken(_ code: String) async throws -> OAuthToken {
-        var request = URLRequest(url: URL(string: tokenEndpoint)!)
+        guard let tokenURL = URL(string: tokenEndpoint) else {
+            throw OAuthError.invalidResponse
+        }
+        var request = URLRequest(url: tokenURL)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
@@ -164,10 +175,13 @@ class SpotifyOAuthProvider: OAuthProvider {
             "grant_type": "authorization_code"
         ]
 
-        request.httpBody = bodyParams
-            .map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")" }
-            .joined(separator: "&")
-            .data(using: .utf8)
+        let encodedBody = try bodyParams.map { key, value -> String in
+            guard let encoded = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+                throw OAuthError.invalidResponse
+            }
+            return "\(key)=\(encoded)"
+        }.joined(separator: "&")
+        request.httpBody = encodedBody.data(using: .utf8)
 
         let (data, response) = try await URLSession.shared.data(for: request)
 
@@ -195,7 +209,10 @@ class SpotifyOAuthProvider: OAuthProvider {
             throw OAuthError.missingRefreshToken
         }
 
-        var request = URLRequest(url: URL(string: tokenEndpoint)!)
+        guard let tokenURL = URL(string: tokenEndpoint) else {
+            throw OAuthError.invalidResponse
+        }
+        var request = URLRequest(url: tokenURL)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
@@ -211,10 +228,13 @@ class SpotifyOAuthProvider: OAuthProvider {
             "grant_type": "refresh_token"
         ]
 
-        request.httpBody = bodyParams
-            .map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")" }
-            .joined(separator: "&")
-            .data(using: .utf8)
+        let encodedRefreshBody = try bodyParams.map { key, value -> String in
+            guard let encoded = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+                throw OAuthError.invalidResponse
+            }
+            return "\(key)=\(encoded)"
+        }.joined(separator: "&")
+        request.httpBody = encodedRefreshBody.data(using: .utf8)
 
         let (data, response) = try await URLSession.shared.data(for: request)
 

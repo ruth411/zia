@@ -2,7 +2,6 @@
 //  MainView.swift
 //  Zia
 //
-//  Created by Claude on 2/13/26.
 //
 
 import SwiftUI
@@ -17,6 +16,8 @@ struct MainView: View {
     // MARK: - State
 
     @StateObject private var dashboardViewModel: DashboardViewModel
+    /// Owned here so it survives InputBarView re-creation; passed down as @ObservedObject
+    @StateObject private var speechService: SpeechRecognitionService
     @State private var showOnboarding = !Configuration.Onboarding.isCompleted
 
     // MARK: - Initialization
@@ -26,11 +27,18 @@ struct MainView: View {
         let chatVM = ChatViewModel(
             aiProvider: container.aiProvider,
             conversationManager: container.conversationManager,
-            ragService: container.ragService
+            ragService: container.ragService,
+            toolRegistry: container.toolRegistry,
+            toolExecutor: container.toolExecutor
+        )
+        let glanceProvider = GlanceCardProvider(
+            calendarService: container.calendarService,
+            spotifyService: container.spotifyService
         )
         _dashboardViewModel = StateObject(
-            wrappedValue: DashboardViewModel(chatViewModel: chatVM)
+            wrappedValue: DashboardViewModel(chatViewModel: chatVM, glanceCardProvider: glanceProvider)
         )
+        _speechService = StateObject(wrappedValue: SpeechRecognitionService())
     }
 
     // MARK: - Body
@@ -95,7 +103,8 @@ struct MainView: View {
                 isLoading: dashboardViewModel.isLoading,
                 onSend: {
                     Task { await dashboardViewModel.sendMessage() }
-                }
+                },
+                speechService: speechService
             )
         }
         .frame(
@@ -103,6 +112,13 @@ struct MainView: View {
             height: Configuration.App.popoverHeight
         )
         .background(.ultraThinMaterial)
+        .onReceive(NotificationCenter.default.publisher(for: Configuration.Keys.Notifications.screenCaptureReady)) { notification in
+            if let base64 = notification.userInfo?["base64"] as? String {
+                Task {
+                    await dashboardViewModel.sendScreenshotMessage(imageBase64: base64)
+                }
+            }
+        }
         .alert("Error", isPresented: .constant(dashboardViewModel.errorMessage != nil)) {
             Button("OK") {
                 dashboardViewModel.dismissError()

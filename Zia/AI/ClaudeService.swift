@@ -2,7 +2,6 @@
 //  ClaudeService.swift
 //  Zia
 //
-//  Created by Claude on 2/13/26.
 //
 
 import Foundation
@@ -38,6 +37,8 @@ class ClaudeService: AIProvider {
                 return .toolUse(ToolUse(id: id, name: name, input: input))
             case .toolResult(let toolUseId, let content, let isError):
                 return .toolResult(ToolResult(toolUseId: toolUseId, content: content, isError: isError))
+            case .image(let mediaType, let base64Data):
+                return .image(ImageContent(mediaType: mediaType, base64Data: base64Data))
             }
         }
         return AIResponse(
@@ -56,13 +57,10 @@ class ClaudeService: AIProvider {
         tools: [ToolDefinition]? = nil
     ) async throws -> ClaudeResponse {
         // Get API key from Keychain
-        print("🔑 Attempting to retrieve Claude API key from Keychain...")
-        guard let apiKey = try? keychainService.retrieveString(for: "claude_api_key"),
+        guard let apiKey = try? keychainService.retrieveString(for: Configuration.Keys.Keychain.claudeAPIKey),
               !apiKey.isEmpty else {
-            print("❌ Claude API key not found or empty!")
             throw ClaudeServiceError.missingAPIKey
         }
-        print("✅ Claude API key found (length: \(apiKey.count) chars)")
 
         // Convert domain messages to API format
         let claudeMessages = messages.map { message in
@@ -94,48 +92,26 @@ class ClaudeService: AIProvider {
         let encoder = JSONEncoder()
         urlRequest.httpBody = try encoder.encode(request)
 
-        print("🤖 Sending request to Claude API...")
-        print("📊 Messages count: \(messages.count)")
-        print("🔧 Tools count: \(tools?.count ?? 0)")
-
         // Send request
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
 
         // Check HTTP response
         guard let httpResponse = response as? HTTPURLResponse else {
-            print("❌ Invalid HTTP response")
             throw ClaudeServiceError.invalidResponse
         }
 
-        print("📡 Response status code: \(httpResponse.statusCode)")
-
         // Handle errors
         if httpResponse.statusCode != 200 {
-            // Try to decode error response
             let decoder = JSONDecoder()
             if let errorResponse = try? decoder.decode(ClaudeErrorResponse.self, from: data) {
-                print("❌ Claude API error: \(errorResponse.error.message)")
                 throw errorResponse.error
             }
-
-            // Try to print raw response for debugging
-            if let responseString = String(data: data, encoding: .utf8) {
-                print("❌ Raw error response: \(responseString)")
-            }
-
-            // Generic error
-            print("❌ HTTP error: \(httpResponse.statusCode)")
             throw ClaudeServiceError.httpError(statusCode: httpResponse.statusCode)
         }
 
         // Decode response (CodingKeys handle snake_case mapping)
         let decoder = JSONDecoder()
         let claudeResponse = try decoder.decode(ClaudeResponse.self, from: data)
-
-        print("✅ Received response from Claude")
-        print("📝 Response text: \(claudeResponse.textContent.prefix(100))...")
-        print("🔧 Tool uses: \(claudeResponse.toolUses.count)")
-        print("🪙 Tokens - Input: \(claudeResponse.usage.inputTokens), Output: \(claudeResponse.usage.outputTokens)")
 
         return claudeResponse
     }
@@ -155,6 +131,11 @@ class ClaudeService: AIProvider {
                     toolUseId: toolResult.toolUseId,
                     content: toolResult.content,
                     isError: toolResult.isError
+                )
+            case .image(let imageContent):
+                return .image(
+                    mediaType: imageContent.mediaType,
+                    base64Data: imageContent.base64Data
                 )
             }
         }

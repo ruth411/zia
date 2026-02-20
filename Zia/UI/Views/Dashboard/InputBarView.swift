@@ -2,7 +2,6 @@
 //  InputBarView.swift
 //  Zia
 //
-//  Created by Claude on 2/14/26.
 //
 
 import SwiftUI
@@ -12,6 +11,8 @@ struct InputBarView: View {
     @Binding var inputText: String
     let isLoading: Bool
     let onSend: () -> Void
+
+    @ObservedObject var speechService: SpeechRecognitionService
 
     var body: some View {
         HStack(spacing: 8) {
@@ -26,16 +27,16 @@ struct InputBarView: View {
                 .disabled(isLoading)
                 .onSubmit { onSend() }
 
-            // Microphone button
+            // Microphone button (push-to-talk)
             Button {
-                // Voice input — future feature
+                toggleVoiceInput()
             } label: {
-                Image(systemName: "mic.fill")
+                Image(systemName: speechService.isListening ? "mic.fill" : "mic")
                     .font(.body)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(speechService.isListening ? .red : .secondary)
             }
             .buttonStyle(.plain)
-            .help("Voice input (coming soon)")
+            .help(speechService.isListening ? "Stop listening" : "Voice input")
 
             // Send button
             if isLoading {
@@ -55,5 +56,25 @@ struct InputBarView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+        .onAppear {
+            speechService.requestAuthorization()
+        }
+        .onChange(of: speechService.isListening) { listening in
+            if !listening && !speechService.transcribedText.isEmpty {
+                inputText = speechService.transcribedText
+            }
+        }
+    }
+
+    private func toggleVoiceInput() {
+        if speechService.isListening {
+            speechService.stopListening()
+        } else {
+            do {
+                try speechService.startListening()
+            } catch {
+                print("Failed to start speech recognition: \(error)")
+            }
+        }
     }
 }

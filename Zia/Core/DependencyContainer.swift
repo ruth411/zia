@@ -2,7 +2,6 @@
 //  DependencyContainer.swift
 //  Zia
 //
-//  Created by Claude on 2/13/26.
 //
 
 import Foundation
@@ -20,92 +19,120 @@ class DependencyContainer: ObservableObject {
 
     weak var appDelegate: AnyObject?
 
-    // MARK: - Services (will be implemented in later phases)
+    // MARK: - Services
 
-    // Phase 2: Authentication
+    // Authentication
     lazy var keychainService: KeychainService = KeychainService()
     lazy var authenticationManager: AuthenticationManager = AuthenticationManager(keychainService: keychainService)
-    lazy var backendAuthService: BackendAuthService = BackendAuthService(keychainService: keychainService)
 
-    // Phase 3: AI (all requests go through backend proxy)
-    lazy var aiProvider: AIProvider = AIServiceFactory.createProvider(
-        keychainService: keychainService,
-        backendAuthService: backendAuthService
-    )
+    // AI — direct Claude API, user provides their own key via onboarding
+    lazy var aiProvider: AIProvider = AIServiceFactory.createProvider(keychainService: keychainService)
     lazy var conversationStore: ConversationStore = ConversationStore()
     lazy var ragService: RAGService = RAGService()
     lazy var conversationManager: ConversationManager = ConversationManager(ragService: ragService)
-    // lazy var toolRegistry: ToolRegistry = ToolRegistry()
-    // lazy var toolExecutor: ToolExecutor = ToolExecutor(registry: toolRegistry)
 
-    // Phase 4: Capabilities
-    // lazy var capabilityManager: CapabilityManager = CapabilityManager(toolRegistry: toolRegistry)
+    // Tool System
+    lazy var toolRegistry: ToolRegistry = {
+        let registry = ToolRegistry()
+        registerAllTools(in: registry)
+        return registry
+    }()
+    lazy var toolExecutor: ToolExecutor = ToolExecutor(registry: toolRegistry)
 
-    // Phase 8: Storage
-    // lazy var cloudKitService: CloudKitService = CloudKitService()
+    // MCP
+    lazy var mcpClientManager: MCPClientManager = MCPClientManager()
 
-    // Phase 9: Scheduling
-    // lazy var schedulerService: SchedulerService = SchedulerService()
+    // Capability Services
+    lazy var calendarService: CalendarService = CalendarService()
+    lazy var remindersService: RemindersService = RemindersService()
+    lazy var spotifyService: SpotifyService = SpotifyService(authManager: authenticationManager)
 
-    // MARK: - View Models
+    // Proactive Intelligence
+    lazy var proactiveEngine: ProactiveEngine = ProactiveEngine()
 
-    // Phase 3: Chat
-    // lazy var chatViewModel: ChatViewModel = ChatViewModel(
-    //     claudeService: claudeService,
-    //     conversationManager: conversationManager,
-    //     toolExecutor: toolExecutor
-    // )
-
-    // lazy var settingsViewModel: SettingsViewModel = SettingsViewModel(
-    //     authenticationManager: authenticationManager
-    // )
+    // Automations
+    lazy var automationStore: AutomationStore = AutomationStore()
+    lazy var automationScheduler: AutomationScheduler = AutomationScheduler(store: automationStore)
 
     // MARK: - Initialization
 
-    private init() {
-        // Services will be initialized lazily when first accessed
-        print("✅ DependencyContainer initialized")
-    }
+    private init() {}
 
     // MARK: - Setup
 
     /// Initialize services that need setup on app launch
     func initialize() async {
-        print("🚀 Initializing services...")
-
         // Initialize RAG search index (auto-reindexes if needed)
         try? ragService.initialize(conversationStore: conversationStore)
 
-        // Phase 2: Initialize authentication
-        // await authenticationManager.initialize()
+        // Force tool registry initialization (built-in tools)
+        _ = toolRegistry
 
-        // Phase 4: Register capabilities
-        // await registerCapabilities()
+        // Start MCP servers and register their tools
+        await mcpClientManager.startAll()
+        mcpClientManager.registerTools(in: toolRegistry)
 
-        // Phase 9: Start scheduler
-        // schedulerService.start()
+        // Start proactive engine with triggers
+        proactiveEngine.registerTriggers([
+            CalendarTrigger(calendarService: calendarService),
+            MorningBriefingTrigger(calendarService: calendarService, remindersService: remindersService),
+            SystemHealthTrigger()
+        ])
+        proactiveEngine.start()
 
-        print("✅ Services initialized")
+        // Start automation scheduler
+        automationScheduler.start()
     }
 
-    // MARK: - Private Methods
+    // MARK: - Tool Registration
 
-    // Phase 4: Capability Registration
-    // private func registerCapabilities() async {
-    //     // Register calendar capability
-    //     let calendarCapability = CalendarCapability()
-    //     try? await capabilityManager.registerCapability(calendarCapability)
-    //
-    //     // Register email capability
-    //     let emailCapability = EmailCapability()
-    //     try? await capabilityManager.registerCapability(emailCapability)
-    //
-    //     // Register music capability
-    //     let musicCapability = MusicCapability()
-    //     try? await capabilityManager.registerCapability(musicCapability)
-    //
-    //     // Register flight capability
-    //     let flightCapability = FlightCapability()
-    //     try? await capabilityManager.registerCapability(flightCapability)
-    // }
+    private func registerAllTools(in registry: ToolRegistry) {
+        // System tools
+        registry.register(GetCurrentDateTimeTool())
+        registry.register(GetSystemInfoTool())
+        registry.register(SetDefaultBrowserTool())
+
+        // Calendar tools
+        registry.register(CalendarGetEventsTool(calendarService: calendarService))
+        registry.register(CalendarCreateEventTool(calendarService: calendarService))
+        registry.register(CalendarDeleteEventTool(calendarService: calendarService))
+
+        // Reminder tools
+        registry.register(RemindersListTool(remindersService: remindersService))
+        registry.register(RemindersCreateTool(remindersService: remindersService))
+        registry.register(RemindersCompleteTool(remindersService: remindersService))
+
+        // Spotify tools
+        registry.register(SpotifyGetCurrentTrackTool(spotifyService: spotifyService))
+        registry.register(SpotifyPlayPauseTool(spotifyService: spotifyService))
+        registry.register(SpotifySkipTool(spotifyService: spotifyService))
+        registry.register(SpotifySearchTool(spotifyService: spotifyService))
+        registry.register(SpotifyPlayTrackTool(spotifyService: spotifyService))
+
+        // Shell tools
+        registry.register(RunShellCommandTool())
+        registry.register(RunAppleScriptTool())
+
+        // File system tools
+        registry.register(ReadFileTool())
+        registry.register(WriteFileTool())
+        registry.register(ListDirectoryTool())
+
+        // Web tools
+        registry.register(WebFetchTool())
+
+        // Utility tools
+        registry.register(ClipboardReadTool())
+        registry.register(ClipboardWriteTool())
+        registry.register(OpenURLTool())
+
+        // Vision tools
+        registry.register(ScreenCaptureTool())
+
+        // Automation tools
+        registry.register(CreateAutomationTool(store: automationStore))
+        registry.register(ListAutomationsTool(store: automationStore))
+        registry.register(RunAutomationTool(store: automationStore))
+        registry.register(DeleteAutomationTool(store: automationStore))
+    }
 }

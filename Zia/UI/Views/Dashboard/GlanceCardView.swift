@@ -2,7 +2,6 @@
 //  GlanceCardView.swift
 //  Zia
 //
-//  Created by Claude on 2/14/26.
 //
 
 import SwiftUI
@@ -43,14 +42,25 @@ struct GlanceCardView: View {
                 }
 
                 // Label below the icon
-                Text(card.title)
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
+                VStack(spacing: 1) {
+                    Text(card.title)
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                    if let subtitle = card.subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 8))
+                            .foregroundColor(.secondary.opacity(0.7))
+                            .lineLimit(1)
+                    }
+                }
             }
         }
         .buttonStyle(.plain)
         .scaleEffect(isPressed ? 0.92 : 1.0)
         .animation(.easeInOut(duration: 0.15), value: isPressed)
+        // minimumDuration: .infinity means the perform closure never fires.
+        // The `pressing` callback is the only part used — it tracks the press state
+        // for the scale animation, giving a tactile feel without a long-press action.
         .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
             isPressed = pressing
         }, perform: {})

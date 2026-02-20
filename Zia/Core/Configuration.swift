@@ -2,7 +2,6 @@
 //  Configuration.swift
 //  Zia
 //
-//  Created by Claude on 2/13/26.
 //
 
 import Foundation
@@ -17,10 +16,10 @@ struct Configuration {
         static let redirectURI = "com.ruthwikdovala.zia://oauth2callback"
 
         struct Spotify {
-            /// Spotify Client ID — loaded from UserDefaults (set during onboarding) or Secrets.plist
+            /// Spotify Client ID — loaded from Keychain (set during onboarding) or Secrets.plist
             static var clientID: String {
-                // 1. Check UserDefaults (set during onboarding)
-                if let stored = UserDefaults.standard.string(forKey: "\(App.bundleIdentifier).spotify_client_id"),
+                // 1. Check Keychain (set during onboarding)
+                if let stored = try? KeychainService().retrieveString(for: Keys.Keychain.spotifyClientID),
                    !stored.isEmpty {
                     return stored
                 }
@@ -32,10 +31,10 @@ struct Configuration {
                 return ""
             }
 
-            /// Spotify Client Secret — loaded from UserDefaults (set during onboarding) or Secrets.plist
+            /// Spotify Client Secret — loaded from Keychain (set during onboarding) or Secrets.plist
             static var clientSecret: String {
-                // 1. Check UserDefaults (set during onboarding)
-                if let stored = UserDefaults.standard.string(forKey: "\(App.bundleIdentifier).spotify_client_secret"),
+                // 1. Check Keychain (set during onboarding)
+                if let stored = try? KeychainService().retrieveString(for: Keys.Keychain.spotifyClientSecret),
                    !stored.isEmpty {
                     return stored
                 }
@@ -111,11 +110,13 @@ struct Configuration {
     // MARK: - Storage
 
     struct Storage {
-        /// Base directory for Zia's persistent data
+        /// Base directory for Zia's persistent data.
+        /// Falls back to a temporary directory if Application Support is unavailable (sandboxed/VM edge case).
         static var appSupportDirectory: URL {
             let fm = FileManager.default
-            let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            return appSupport.appendingPathComponent(App.bundleIdentifier)
+            let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+                ?? fm.temporaryDirectory
+            return base.appendingPathComponent(App.bundleIdentifier)
         }
 
         /// Directory for conversation history JSON files
@@ -142,22 +143,6 @@ struct Configuration {
         static let bm25Weight: Double = 0.4
         static let embeddingWeight: Double = 0.6
         static let minRelevanceScore: Double = 0.1
-    }
-
-    // MARK: - Backend
-
-    struct Backend {
-        private static let baseURLKey = "\(App.bundleIdentifier).backendURL"
-
-        /// Backend API base URL (defaults to Railway deployment URL)
-        static var baseURL: String {
-            UserDefaults.standard.string(forKey: baseURLKey)
-                ?? "https://zia-production-e66b.up.railway.app"
-        }
-
-        static func setBaseURL(_ url: String) {
-            UserDefaults.standard.set(url, forKey: baseURLKey)
-        }
     }
 
     // MARK: - Onboarding
@@ -189,5 +174,23 @@ struct Configuration {
     struct Scheduler {
         static let timerInterval: TimeInterval = 60 // Check every 60 seconds
         static let flightCheckInterval: TimeInterval = 900 // Check for flights every 15 minutes
+    }
+
+    // MARK: - Shared Keys
+
+    /// Centralised string constants to avoid duplication across files.
+    struct Keys {
+        struct Keychain {
+            static let claudeAPIKey = "claude_api_key"
+            static let spotifyClientID = "spotify_client_id"
+            static let spotifyClientSecret = "spotify_client_secret"
+            static let spotifyAccessToken = "spotify_access_token"
+            static let spotifyRefreshToken = "spotify_refresh_token"
+        }
+
+        struct Notifications {
+            static let screenCaptureReady = Notification.Name("ZiaScreenCaptureReady")
+            static let spotifyOAuthCallback = Notification.Name("SpotifyOAuthCallback")
+        }
     }
 }

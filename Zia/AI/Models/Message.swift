@@ -2,7 +2,6 @@
 //  Message.swift
 //  Zia
 //
-//  Created by Claude on 2/13/26.
 //
 
 import Foundation
@@ -42,6 +41,7 @@ enum ContentBlock: Codable {
     case text(String)
     case toolUse(ToolUse)
     case toolResult(ToolResult)
+    case image(ImageContent)
 
     // MARK: - Codable
 
@@ -50,6 +50,7 @@ enum ContentBlock: Codable {
         case text
         case toolUse
         case toolResult
+        case image
     }
 
     init(from decoder: Decoder) throws {
@@ -66,6 +67,9 @@ enum ContentBlock: Codable {
         case "tool_result":
             let toolResult = try container.decode(ToolResult.self, forKey: .toolResult)
             self = .toolResult(toolResult)
+        case "image":
+            let image = try container.decode(ImageContent.self, forKey: .image)
+            self = .image(image)
         default:
             throw DecodingError.dataCorruptedError(
                 forKey: .type,
@@ -88,7 +92,26 @@ enum ContentBlock: Codable {
         case .toolResult(let toolResult):
             try container.encode("tool_result", forKey: .type)
             try container.encode(toolResult, forKey: .toolResult)
+        case .image(let image):
+            try container.encode("image", forKey: .type)
+            try container.encode(image, forKey: .image)
         }
+    }
+}
+
+/// Image content for Claude vision API
+struct ImageContent: Codable {
+    let mediaType: String
+    let base64Data: String
+
+    enum CodingKeys: String, CodingKey {
+        case mediaType = "media_type"
+        case base64Data = "base64_data"
+    }
+
+    init(mediaType: String = "image/png", base64Data: String) {
+        self.mediaType = mediaType
+        self.base64Data = base64Data
     }
 }
 
@@ -128,11 +151,27 @@ struct ToolResult: Codable {
 struct AnyCodable: Codable {
     let value: Any
 
+    /// Thread-local key for tracking recursive decode depth (prevents stack overflow on deep JSON)
+    private static let depthKey = "AnyCodableDecodeDepth"
+    private static let maxDepth = 20
+
     init(_ value: Any) {
         self.value = value
     }
 
     init(from decoder: Decoder) throws {
+        // Guard against deeply-nested JSON causing a stack overflow
+        let currentDepth = Thread.current.threadDictionary[Self.depthKey] as? Int ?? 0
+        guard currentDepth < Self.maxDepth else {
+            let container = try decoder.singleValueContainer()
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "AnyCodable: maximum nesting depth of \(Self.maxDepth) exceeded"
+            )
+        }
+        Thread.current.threadDictionary[Self.depthKey] = currentDepth + 1
+        defer { Thread.current.threadDictionary[Self.depthKey] = currentDepth }
+
         let container = try decoder.singleValueContainer()
 
         if let string = try? container.decode(String.self) {
