@@ -13,7 +13,7 @@ struct UninstallView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var keepData = false
-    @State private var showingConfirmation = false
+    @State private var isUninstalling = false
 
     var body: some View {
         VStack(spacing: 20) {
@@ -79,29 +79,30 @@ struct UninstallView: View {
 
                 Spacer()
 
-                Button("Uninstall") {
-                    showingConfirmation = true
+                Button {
+                    isUninstalling = true
+                    // Small delay so SwiftUI renders the "Uninstalling…" label
+                    // before we call exit(0) inside performUninstall()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        performUninstall()
+                    }
+                } label: {
+                    if isUninstalling {
+                        HStack(spacing: 6) {
+                            ProgressView().scaleEffect(0.75)
+                            Text("Uninstalling…")
+                        }
+                    } else {
+                        Text("Uninstall")
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.red)
+                .disabled(isUninstalling)
             }
         }
         .padding(24)
-        .frame(width: 420, height: 480)
-        .confirmationDialog(
-            "Are you sure?",
-            isPresented: $showingConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Uninstall Zia", role: .destructive) {
-                performUninstall()
-            }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text(keepData
-                 ? "Zia.app will be moved to Trash. Your data will be kept."
-                 : "Zia.app and all associated data will be permanently removed.")
-        }
+        .frame(minWidth: 420, maxWidth: 420, minHeight: 540)
     }
 
     // MARK: - Subviews
@@ -126,13 +127,8 @@ struct UninstallView: View {
 
     private func performUninstall() {
         if keepData {
-            // Just move app to Trash
-            guard let appURL = Bundle.main.bundleURL as URL? else { return }
-            NSWorkspace.shared.recycle([appURL]) { _, _ in
-                DispatchQueue.main.async {
-                    NSApplication.shared.terminate(nil)
-                }
-            }
+            // Only move the app bundle; leave all user data intact
+            UninstallService.moveAppToTrashAndQuit()
         } else {
             UninstallService.uninstallApp()
         }

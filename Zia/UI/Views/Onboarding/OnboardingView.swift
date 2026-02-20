@@ -90,7 +90,9 @@ class OnboardingViewModel: ObservableObject {
     @Published var spotifyClientID: String = ""
     @Published var spotifyClientSecret: String = ""
     @Published var isSpotifyConnected = false
+    @Published var isConnectingSpotify = false
     @Published var spotifySkipped = false
+    @Published var spotifyError: String? = nil
 
     // MARK: - Methods
 
@@ -99,5 +101,20 @@ class OnboardingViewModel: ObservableObject {
         let keychain = DependencyContainer.shared.keychainService
         try? keychain.saveString(spotifyClientID, for: Configuration.Keys.Keychain.spotifyClientID)
         try? keychain.saveString(spotifyClientSecret, for: Configuration.Keys.Keychain.spotifyClientSecret)
+    }
+
+    /// Save credentials then run the OAuth flow to get an access token
+    @MainActor
+    func saveAndConnect() async {
+        saveSpotifyCredentials()
+        isConnectingSpotify = true
+        spotifyError = nil
+        do {
+            try await DependencyContainer.shared.authenticationManager.authenticateSpotify()
+            isSpotifyConnected = true
+        } catch {
+            spotifyError = error.localizedDescription
+        }
+        isConnectingSpotify = false
     }
 }

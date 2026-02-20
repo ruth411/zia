@@ -191,6 +191,7 @@ struct Configuration {
         struct Notifications {
             static let screenCaptureReady = Notification.Name("ZiaScreenCaptureReady")
             static let spotifyOAuthCallback = Notification.Name("SpotifyOAuthCallback")
+            static let showOnboarding = Notification.Name("ZiaShowOnboarding")
         }
     }
 }
