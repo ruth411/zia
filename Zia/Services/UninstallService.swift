@@ -64,22 +64,39 @@ enum UninstallService {
     /// Move the app to Trash and quit
     static func uninstallApp() {
         cleanAllData()
+        moveAppToTrashAndQuit()
+    }
 
-        // Move app bundle to Trash
-        guard let appURL = Bundle.main.bundleURL as URL? else { return }
+    /// Spawn a background shell that waits for the app process to exit, then moves
+    /// the bundle to Trash.
+    ///
+    /// Uses `nohup` so the script is immune to SIGHUP when the parent quits,
+    /// then calls `exit(0)` for an immediate OS-level process exit that cannot
+    /// be blocked by AppKit or the run loop.
+    static func moveAppToTrashAndQuit() {
+        let appPath = Bundle.main.bundleURL.path
+        let pid = ProcessInfo.processInfo.processIdentifier
+        let trashPath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".Trash").path
 
-        NSWorkspace.shared.recycle([appURL]) { trashedURLs, error in
-            if let error = error {
-                print("UninstallService: Failed to move app to Trash: \(error)")
-            } else {
-                print("UninstallService: App moved to Trash")
-            }
+        // Single-quote-escape paths to handle spaces / special characters
+        let escapedApp   = appPath.replacingOccurrences(of: "'", with: "'\\''")
+        let escapedTrash = trashPath.replacingOccurrences(of: "'", with: "'\\''")
+        let script = "while /bin/kill -0 \(pid) 2>/dev/null; do /bin/sleep 0.2; done; /bin/mv -f '\(escapedApp)' '\(escapedTrash)/'"
 
-            // Quit regardless
-            DispatchQueue.main.async {
-                NSApplication.shared.terminate(nil)
-            }
-        }
+        // nohup keeps the script alive after the parent process exits
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/nohup")
+        task.arguments = ["/bin/sh", "-c", script]
+        task.standardOutput = FileHandle.nullDevice
+        task.standardError = FileHandle.nullDevice
+        try? task.run()
+
+        // Give the subprocess a moment to fully launch before we exit
+        Thread.sleep(forTimeInterval: 0.25)
+
+        // exit(0) is an immediate OS-level quit — cannot be blocked by AppKit
+        exit(0)
     }
 
     // MARK: - Keychain Cleanup

@@ -56,22 +56,54 @@ struct SpotifyStepView: View {
 
             Spacer()
 
+            // Status
+            if let error = viewModel.spotifyError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
+
+            if viewModel.isSpotifyConnected {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
+                    Text("Spotify connected!").font(.subheadline.weight(.medium)).foregroundColor(.green)
+                }
+            }
+
             // Buttons
             VStack(spacing: 12) {
-                // Save & Continue
-                Button {
-                    viewModel.saveSpotifyCredentials()
-                    onNext()
-                } label: {
-                    Text("Save & Continue")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                if viewModel.isSpotifyConnected {
+                    Button { onNext() } label: {
+                        Text("Continue")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.borderedProminent)
+                } else {
+                    Button {
+                        Task { await viewModel.saveAndConnect() }
+                    } label: {
+                        if viewModel.isConnectingSpotify {
+                            HStack(spacing: 8) {
+                                ProgressView().scaleEffect(0.8)
+                                Text("Connecting…")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                        } else {
+                            Text("Save & Connect Spotify")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(viewModel.spotifyClientID.isEmpty || viewModel.spotifyClientSecret.isEmpty || viewModel.isConnectingSpotify)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(viewModel.spotifyClientID.isEmpty || viewModel.spotifyClientSecret.isEmpty)
 
-                // Skip
                 Button {
                     viewModel.spotifySkipped = true
                     onNext()
@@ -81,6 +113,7 @@ struct SpotifyStepView: View {
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
+                .disabled(viewModel.isConnectingSpotify)
             }
             .padding(.horizontal, 32)
             .padding(.bottom, 32)

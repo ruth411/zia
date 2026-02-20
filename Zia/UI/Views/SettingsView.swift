@@ -126,34 +126,67 @@ struct SettingsView: View {
             Text("API Key")
                 .font(.headline)
 
-            HStack(spacing: 12) {
-                Image(systemName: viewModel.hasAPIKey ? "key.fill" : "key")
-                    .font(.system(size: 28))
-                    .foregroundColor(viewModel.hasAPIKey ? .blue : .gray)
+            if viewModel.hasAPIKey {
+                // Key is saved — show status + reset button
+                HStack(spacing: 12) {
+                    Image(systemName: "key.fill")
+                        .font(.system(size: 28))
+                        .foregroundColor(.blue)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(viewModel.hasAPIKey ? "Anthropic API Key configured" : "No API key set")
-                        .font(.subheadline.weight(.medium))
-                    Text(viewModel.hasAPIKey
-                         ? "Your key is stored securely in Keychain"
-                         : "Add your key in onboarding to use Zia")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Anthropic API Key configured")
+                            .font(.subheadline.weight(.medium))
+                        Text("Your key is stored securely in Keychain")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
 
-                Spacer()
+                    Spacer()
 
-                if viewModel.hasAPIKey {
                     Button("Reset Key") {
                         viewModel.resetAPIKey()
                     }
                     .buttonStyle(.bordered)
                     .tint(.red)
                 }
+                .padding()
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(8)
+            } else {
+                // No key — show entry field directly
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "key")
+                            .foregroundColor(.gray)
+                        Text("Enter your Anthropic API Key")
+                            .font(.subheadline.weight(.medium))
+                    }
+
+                    SecureField("sk-ant-...", text: $viewModel.newAPIKey)
+                        .textFieldStyle(.roundedBorder)
+
+                    if let error = viewModel.newAPIKeyError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
+
+                    HStack {
+                        Text("Get your key at console.anthropic.com")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Button("Save Key") {
+                            viewModel.saveNewAPIKey()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(viewModel.newAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+                .padding()
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(8)
             }
-            .padding()
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(8)
         }
     }
 
@@ -162,37 +195,108 @@ struct SettingsView: View {
             Text("Connected Services")
                 .font(.headline)
 
-            // Spotify Account
-            if Configuration.OAuth.Spotify.isConfigured {
-                accountRow(
-                    icon: "music.note",
-                    title: "Spotify",
-                    subtitle: "Music playback control",
-                    isConnected: viewModel.isSpotifyConnected,
-                    isConnecting: viewModel.isConnectingSpotify,
-                    onConnect: { connectSpotify() },
-                    onDisconnect: { disconnectSpotify() }
-                )
-            } else {
+            // Spotify — credentials + OAuth connect in one section
+            VStack(alignment: .leading, spacing: 12) {
+                // Header row
+                HStack(spacing: 8) {
+                    Image(systemName: "music.note")
+                        .font(.title2)
+                        .foregroundColor(.green)
+                        .frame(width: 30)
+                    Text("Spotify")
+                        .font(.subheadline.weight(.medium))
+                    Spacer()
+                    if viewModel.isSpotifyConnected {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
+                            Text("Connected").font(.caption).foregroundColor(.green)
+                        }
+                    }
+                }
+
+                Divider()
+
+                // Credentials fields
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "music.note")
-                            .foregroundColor(.gray)
-                        Text("Spotify")
-                            .font(.subheadline.weight(.medium))
+                    Text("App Credentials")
+                        .font(.caption.weight(.medium))
+                        .foregroundColor(.secondary)
+
+                    TextField("Client ID", text: $viewModel.spotifyClientID)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption)
+
+                    SecureField("Client Secret", text: $viewModel.spotifyClientSecret)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption)
+
+                    Text("Create an app at developer.spotify.com/dashboard")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    HStack {
+                        if viewModel.spotifyCredentialsSaved {
+                            HStack(spacing: 4) {
+                                Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
+                                Text("Saved!").font(.caption).foregroundColor(.green)
+                            }
+                        }
                         Spacer()
-                        Text("Not configured")
-                            .font(.caption)
+                        Button("Save Credentials") {
+                            viewModel.saveSpotifyCredentials()
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(
+                            viewModel.spotifyClientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                            viewModel.spotifyClientSecret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        )
+                    }
+                }
+
+                Divider()
+
+                // OAuth connect/disconnect row
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(viewModel.isSpotifyConnected ? "Authorized" : "Not authorized")
+                            .font(.caption.weight(.medium))
+                        Text("Tap Connect to authorize with your Spotify account")
+                            .font(.caption2)
                             .foregroundColor(.secondary)
                     }
-                    Text("Re-run setup to add Spotify credentials")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    Spacer()
+                    if viewModel.isConnectingSpotify {
+                        ProgressView().scaleEffect(0.8)
+                    } else if viewModel.isSpotifyConnected {
+                        Button("Disconnect") { disconnectSpotify() }
+                            .buttonStyle(.bordered)
+                            .tint(.red)
+                    } else {
+                        Button("Connect") { connectSpotify() }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(!viewModel.hasSpotifyCredentials)
+                    }
                 }
-                .padding()
-                .background(Color(NSColor.controlBackgroundColor))
-                .cornerRadius(8)
+
+                if !viewModel.hasSpotifyCredentials {
+                    Text("Save your credentials above before connecting.")
+                        .font(.caption2)
+                        .foregroundColor(.orange)
+                }
+
+                // Clear credentials
+                if viewModel.hasSpotifyCredentials {
+                    Button("Clear Credentials") {
+                        viewModel.clearSpotifyCredentials()
+                    }
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .buttonStyle(.plain)
+                }
             }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(8)
 
             // Native macOS Services Info
             VStack(alignment: .leading, spacing: 8) {
@@ -512,6 +616,12 @@ class SettingsViewModel: ObservableObject {
     @Published var isSpotifyConnected = false
     @Published var isConnectingSpotify = false
     @Published var hasAPIKey = false
+    @Published var newAPIKey: String = ""
+    @Published var newAPIKeyError: String? = nil
+    @Published var spotifyClientID: String = ""
+    @Published var spotifyClientSecret: String = ""
+    @Published var hasSpotifyCredentials: Bool = false
+    @Published var spotifyCredentialsSaved: Bool = false
     @Published var indexedMessageCount: Int = 0
     @Published var indexSizeDisplay: String = "0 KB"
     @Published var isReindexing = false
@@ -544,6 +654,13 @@ class SettingsViewModel: ObservableObject {
         // Check if API key is stored
         self.hasAPIKey = (try? keychainService.retrieveString(for: Configuration.Keys.Keychain.claudeAPIKey)) != nil
 
+        // Load Spotify credentials (for display in settings)
+        let storedClientID = (try? keychainService.retrieveString(for: Configuration.Keys.Keychain.spotifyClientID)) ?? ""
+        let storedSecret = (try? keychainService.retrieveString(for: Configuration.Keys.Keychain.spotifyClientSecret)) ?? ""
+        self.spotifyClientID = storedClientID
+        self.spotifyClientSecret = storedSecret
+        self.hasSpotifyCredentials = !storedClientID.isEmpty && !storedSecret.isEmpty
+
         // Load RAG index stats
         loadIndexStats()
     }
@@ -560,11 +677,53 @@ class SettingsViewModel: ObservableObject {
         isSpotifyConnected = false
     }
 
+    func saveSpotifyCredentials() {
+        let id = spotifyClientID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let secret = spotifyClientSecret.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !id.isEmpty, !secret.isEmpty else { return }
+        try? keychainService.saveString(id, for: Configuration.Keys.Keychain.spotifyClientID)
+        try? keychainService.saveString(secret, for: Configuration.Keys.Keychain.spotifyClientSecret)
+        hasSpotifyCredentials = true
+        spotifyCredentialsSaved = true
+        // Reset the saved confirmation after 2 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            self?.spotifyCredentialsSaved = false
+        }
+    }
+
+    func clearSpotifyCredentials() {
+        try? keychainService.deleteString(for: Configuration.Keys.Keychain.spotifyClientID)
+        try? keychainService.deleteString(for: Configuration.Keys.Keychain.spotifyClientSecret)
+        spotifyClientID = ""
+        spotifyClientSecret = ""
+        hasSpotifyCredentials = false
+        isSpotifyConnected = false
+    }
+
     func resetAPIKey() {
         do { try keychainService.deleteString(for: Configuration.Keys.Keychain.claudeAPIKey) }
         catch { print("Keychain: Failed to delete API key: \(error)") }
         hasAPIKey = false
+        newAPIKey = ""
+        newAPIKeyError = nil
         Configuration.Onboarding.reset()
+    }
+
+    func saveNewAPIKey() {
+        let trimmed = newAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("sk-ant-") else {
+            newAPIKeyError = "Invalid key — Anthropic keys start with \"sk-ant-\""
+            return
+        }
+        do {
+            try keychainService.saveString(trimmed, for: Configuration.Keys.Keychain.claudeAPIKey)
+            hasAPIKey = true
+            newAPIKey = ""
+            newAPIKeyError = nil
+            Configuration.Onboarding.markCompleted()
+        } catch {
+            newAPIKeyError = "Failed to save key: \(error.localizedDescription)"
+        }
     }
 
     func resetOnboarding() {

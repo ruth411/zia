@@ -18,7 +18,7 @@ struct MainView: View {
     @StateObject private var dashboardViewModel: DashboardViewModel
     /// Owned here so it survives InputBarView re-creation; passed down as @ObservedObject
     @StateObject private var speechService: SpeechRecognitionService
-    @State private var showOnboarding = !Configuration.Onboarding.isCompleted
+    @State private var showOnboarding: Bool
 
     // MARK: - Initialization
 
@@ -39,6 +39,14 @@ struct MainView: View {
             wrappedValue: DashboardViewModel(chatViewModel: chatVM, glanceCardProvider: glanceProvider)
         )
         _speechService = StateObject(wrappedValue: SpeechRecognitionService())
+
+        // Show onboarding if the flag isn't set OR if the API key is genuinely missing
+        // from Keychain (handles fresh installs and the case where UserDefaults was
+        // already set on the dev machine but no key exists yet on this install).
+        let hasAPIKey = (try? container.keychainService.retrieveString(
+            for: Configuration.Keys.Keychain.claudeAPIKey
+        )) != nil
+        _showOnboarding = State(initialValue: !Configuration.Onboarding.isCompleted || !hasAPIKey)
     }
 
     // MARK: - Body
@@ -112,6 +120,9 @@ struct MainView: View {
             height: Configuration.App.popoverHeight
         )
         .background(.ultraThinMaterial)
+        .onReceive(NotificationCenter.default.publisher(for: Configuration.Keys.Notifications.showOnboarding)) { _ in
+            showOnboarding = true
+        }
         .onReceive(NotificationCenter.default.publisher(for: Configuration.Keys.Notifications.screenCaptureReady)) { notification in
             if let base64 = notification.userInfo?["base64"] as? String {
                 Task {
