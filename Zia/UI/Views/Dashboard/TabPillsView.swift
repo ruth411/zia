@@ -2,7 +2,6 @@
 //  TabPillsView.swift
 //  Zia
 //
-//  Created by Claude on 2/14/26.
 //
 
 import SwiftUI
@@ -28,7 +27,7 @@ struct TabPillsView: View {
         .padding(.vertical, 4)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(Color(red: 0.2, green: 0.35, blue: 0.3).opacity(0.3))
+                .fill(Color.teal.opacity(0.25))
         )
         .padding(.horizontal, 16)
         .padding(.vertical, 6)

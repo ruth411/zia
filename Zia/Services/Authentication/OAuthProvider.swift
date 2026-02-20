@@ -2,7 +2,6 @@
 //  OAuthProvider.swift
 //  Zia
 //
-//  Created by Claude on 2/13/26.
 //
 
 import Foundation
@@ -54,6 +53,7 @@ enum OAuthError: LocalizedError {
     case networkError(Error)
     case invalidGrant
     case serverError(String)
+    case timeout
 
     var errorDescription: String? {
         switch self {
@@ -69,6 +69,8 @@ enum OAuthError: LocalizedError {
             return "Token is invalid or expired. Please re-authenticate."
         case .serverError(let message):
             return "Server error: \(message)"
+        case .timeout:
+            return "Authentication timed out. Please try again."
         }
     }
 }

@@ -2,7 +2,6 @@
 //  SearchIndex.swift
 //  Zia
 //
-//  Created by Claude on 2/14/26.
 //
 
 import Foundation
@@ -143,11 +142,16 @@ class SearchIndex {
         var results: [SearchResult] = []
 
         while sqlite3_step(stmt) == SQLITE_ROW {
-            let conversationId = String(cString: sqlite3_column_text(stmt, 0))
-            let messageId = String(cString: sqlite3_column_text(stmt, 1))
-            let role = String(cString: sqlite3_column_text(stmt, 2))
-            let content = String(cString: sqlite3_column_text(stmt, 3))
-            let timestampStr = String(cString: sqlite3_column_text(stmt, 4))
+            guard let col0 = sqlite3_column_text(stmt, 0),
+                  let col1 = sqlite3_column_text(stmt, 1),
+                  let col2 = sqlite3_column_text(stmt, 2),
+                  let col3 = sqlite3_column_text(stmt, 3),
+                  let col4 = sqlite3_column_text(stmt, 4) else { continue }
+            let conversationId = String(cString: col0)
+            let messageId = String(cString: col1)
+            let role = String(cString: col2)
+            let content = String(cString: col3)
+            let timestampStr = String(cString: col4)
             let bm25 = sqlite3_column_double(stmt, 5)
 
             let timestamp = dateFormatter.date(from: timestampStr) ?? Date()
@@ -169,8 +173,19 @@ class SearchIndex {
 
     /// Delete all entries for a specific conversation
     func deleteConversation(id: String) throws {
-        guard db != nil else { throw SearchIndexError.notOpen }
-        try exec("DELETE FROM messages_fts WHERE conversation_id = '\(id.replacingOccurrences(of: "'", with: "''"))'")
+        guard let db = db else { throw SearchIndexError.notOpen }
+
+        let sql = "DELETE FROM messages_fts WHERE conversation_id = ?"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            throw SearchIndexError.queryFailed(errorMessage())
+        }
+        defer { sqlite3_finalize(stmt) }
+
+        sqlite3_bind_text(stmt, 1, (id as NSString).utf8String, -1, nil)
+        guard sqlite3_step(stmt) == SQLITE_DONE else {
+            throw SearchIndexError.queryFailed(errorMessage())
+        }
     }
 
     /// Drop and recreate the FTS table (for full rebuild)

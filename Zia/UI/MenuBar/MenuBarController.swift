@@ -2,7 +2,6 @@
 //  MenuBarController.swift
 //  Zia
 //
-//  Created by Claude on 2/13/26.
 //
 
 import Cocoa
@@ -27,81 +26,49 @@ class MenuBarController: NSObject {
     // MARK: - Setup
 
     func setup() {
-        print("🎯 Setting up menu bar...")
-
         // Create status item in menu bar with variable length to fit icon
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
-        guard let button = statusItem?.button else {
-            print("❌ Failed to get status item button!")
-            return
-        }
+        guard let button = statusItem?.button else { return }
 
-        print("✅ Status item button created")
-
-        // Load the custom Zia logo
+        // Load the custom Zia logo — three fallback approaches
         var image: NSImage?
 
-        // Approach 1: Try loading from asset catalog (standard way)
-        print("🔍 Attempting to load ZiaLogo from asset catalog...")
+        // Approach 1: Asset catalog (standard way)
         image = NSImage(named: "ZiaLogo")
-        if image != nil {
-            print("✅ Loaded from asset catalog")
-        }
 
-        // Approach 2: Try loading directly from the app's Resources
-        if image == nil {
-            print("🔍 Attempting to load from resource path...")
-            if let resourcePath = Bundle.main.resourcePath {
-                let imagePath = "\(resourcePath)/Assets.xcassets/ZiaLogo.imageset/zialogo.png"
-                if FileManager.default.fileExists(atPath: imagePath) {
-                    image = NSImage(contentsOfFile: imagePath)
-                    print("✅ Loaded ZiaLogo from resource path: \(imagePath)")
-                } else {
-                    print("❌ File not found at: \(imagePath)")
-                }
-            }
-        }
-
-        // Approach 3: Search for the image file in the bundle
-        if image == nil {
-            print("🔍 Searching bundle for zialogo.png...")
-            if let imagePath = Bundle.main.path(forResource: "zialogo", ofType: "png") {
+        // Approach 2: Direct resource path
+        if image == nil, let resourcePath = Bundle.main.resourcePath {
+            let imagePath = "\(resourcePath)/Assets.xcassets/ZiaLogo.imageset/zialogo.png"
+            if FileManager.default.fileExists(atPath: imagePath) {
                 image = NSImage(contentsOfFile: imagePath)
-                print("✅ Loaded ZiaLogo from bundle search: \(imagePath)")
-            } else {
-                print("❌ Not found in bundle")
             }
         }
 
-        // Set the image
-        if let loadedImage = image {
-            print("✅ ZiaLogo loaded successfully - Original size: \(loadedImage.size)")
+        // Approach 3: Bundle search
+        if image == nil, let imagePath = Bundle.main.path(forResource: "zialogo", ofType: "png") {
+            image = NSImage(contentsOfFile: imagePath)
+        }
 
-            // Resize to appropriate menu bar size (27x27 points for better visibility)
+        // Set the image or fall back to "Z" text
+        if let loadedImage = image {
             let iconSize: CGFloat = 27
             let resizedImage = NSImage(size: NSSize(width: iconSize, height: iconSize))
             resizedImage.lockFocus()
             loadedImage.draw(in: NSRect(x: 0, y: 0, width: iconSize, height: iconSize))
             resizedImage.unlockFocus()
-
-            // Set as template to auto-adapt to light/dark mode
             resizedImage.isTemplate = true
             button.image = resizedImage
-            print("✅ Menu bar icon set with resized image (\(iconSize)x\(iconSize))")
         } else {
-            print("⚠️ ZiaLogo not found - using system fallback icon")
-            // Use a simple text as absolute fallback
             button.title = "Z"
             button.image = nil
-            print("✅ Menu bar showing 'Z' text")
         }
 
-        button.action = #selector(togglePopover)
+        button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        button.action = #selector(handleStatusBarClick(_:))
         button.target = self
 
         // Create popover with SwiftUI content
-        print("🔧 Setting up popover...")
         popover = NSPopover()
         popover?.contentSize = NSSize(
             width: Configuration.App.popoverWidth,
@@ -112,11 +79,18 @@ class MenuBarController: NSObject {
             rootView: MainView()
                 .environmentObject(dependencyContainer)
         )
-
-        print("✅ Menu bar setup complete")
     }
 
     // MARK: - Actions
+
+    @objc private func handleStatusBarClick(_ sender: NSStatusBarButton) {
+        guard let event = NSApp.currentEvent else { return }
+        if event.type == .rightMouseUp {
+            showContextMenu()
+        } else {
+            togglePopover(sender)
+        }
+    }
 
     @objc private func togglePopover(_ sender: AnyObject?) {
         guard let button = statusItem?.button else { return }
@@ -128,18 +102,46 @@ class MenuBarController: NSObject {
         }
     }
 
+    private func showContextMenu() {
+        guard let button = statusItem?.button else { return }
+
+        let menu = NSMenu()
+
+        let openItem = NSMenuItem(title: "Open Zia", action: #selector(togglePopover(_:)), keyEquivalent: "")
+        openItem.target = self
+        menu.addItem(openItem)
+
+        menu.addItem(.separator())
+
+        let settingsItem = NSMenuItem(title: "Settings...", action: #selector(openSettingsFromMenu), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
+        menu.addItem(.separator())
+
+        let quitItem = NSMenuItem(title: "Quit Zia", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(quitItem)
+
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height), in: button)
+    }
+
+    @objc private func openSettingsFromMenu() {
+        // Open popover first so the app is active and has a window
+        if popover?.isShown != true {
+            guard let button = statusItem?.button else { return }
+            openPopover(relativeTo: button)
+        }
+        // Route to AppDelegate.showSettings() through the responder chain
+        NSApp.sendAction(Selector(("showSettings")), to: nil, from: nil)
+    }
+
     private func openPopover(relativeTo view: NSView) {
         popover?.show(relativeTo: view.bounds, of: view, preferredEdge: .minY)
-
-        // Activate app to capture keyboard focus
         NSApp.activate(ignoringOtherApps: true)
-
-        print("📖 Popover opened")
     }
 
     private func closePopover() {
         popover?.performClose(nil)
-        print("📕 Popover closed")
     }
 
     // MARK: - Icon State Management

@@ -23,9 +23,22 @@ Package.resolved
 # CocoaPods
 Pods/
 
+# Xcode user-specific state
+xcuserdata/
+*.xcuserstate
+
 # IDE
 *.swp
 *.swo
 *~
 .idea/
 *.xccheckout
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build output (outside repo)
+/tmp/ZiaBuild/

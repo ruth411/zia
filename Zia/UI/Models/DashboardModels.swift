@@ -2,7 +2,6 @@
 //  DashboardModels.swift
 //  Zia
 //
-//  Created by Claude on 2/14/26.
 //
 
 import Foundation
@@ -29,30 +28,41 @@ enum DashboardCategory: String, CaseIterable, Identifiable {
 
 /// A glance card displayed in the horizontal row
 struct GlanceCard: Identifiable {
-    let id = UUID()
+    let id: String
     let title: String
-    let subtitle: String?
+    var subtitle: String?
     let iconName: String
     let gradientColors: [Color]
     let iconColor: Color
-    let badgeCount: Int
+    var badgeCount: Int
     let category: DashboardCategory
     let actionQuery: String
 
-    static let placeholders: [GlanceCard] = [
-        // Calendar — white card, red calendar icon (like macOS Calendar)
+    /// Card type for identifying which card to update with live data
+    enum CardType: String {
+        case calendar
+        case music
+        case weather
+        case system
+    }
+
+    let cardType: CardType
+
+    static let defaults: [GlanceCard] = [
         GlanceCard(
+            id: "calendar",
             title: "Calendar",
             subtitle: nil,
             iconName: "calendar",
             gradientColors: [.white, Color(white: 0.93)],
             iconColor: .red,
-            badgeCount: 3,
+            badgeCount: 0,
             category: .calendar,
-            actionQuery: "What's on my calendar today?"
+            actionQuery: "What's on my calendar today?",
+            cardType: .calendar
         ),
-        // Music — white card, pink/red music note (like Apple Music)
         GlanceCard(
+            id: "music",
             title: "Music",
             subtitle: nil,
             iconName: "music.note",
@@ -60,29 +70,32 @@ struct GlanceCard: Identifiable {
             iconColor: Color(red: 0.98, green: 0.18, blue: 0.35),
             badgeCount: 0,
             category: .music,
-            actionQuery: "Play some music"
+            actionQuery: "What's playing on Spotify?",
+            cardType: .music
         ),
-        // Flight — warm orange/brown gradient, white icon
         GlanceCard(
-            title: "Flight",
+            id: "weather",
+            title: "Weather",
             subtitle: nil,
-            iconName: "airplane",
-            gradientColors: [Color(red: 0.95, green: 0.55, blue: 0.25), Color(red: 0.8, green: 0.35, blue: 0.15)],
+            iconName: "cloud.sun.fill",
+            gradientColors: [Color(red: 0.3, green: 0.6, blue: 0.95), Color(red: 0.2, green: 0.4, blue: 0.8)],
             iconColor: .white,
             badgeCount: 0,
-            category: .flights,
-            actionQuery: "Check my upcoming flights"
+            category: .today,
+            actionQuery: "What's the weather like?",
+            cardType: .weather
         ),
-        // Flight — dark card, white airplane
         GlanceCard(
-            title: "Flight",
+            id: "system",
+            title: "System",
             subtitle: nil,
-            iconName: "airplane.departure",
+            iconName: "laptopcomputer",
             gradientColors: [Color(white: 0.15), Color(white: 0.22)],
             iconColor: .white,
-            badgeCount: 1,
-            category: .flights,
-            actionQuery: "Any flight updates?"
+            badgeCount: 0,
+            category: .today,
+            actionQuery: "How's my system doing?",
+            cardType: .system
         )
     ]
 }

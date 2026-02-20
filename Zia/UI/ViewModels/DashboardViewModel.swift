@@ -2,7 +2,6 @@
 //  DashboardViewModel.swift
 //  Zia
 //
-//  Created by Claude on 2/14/26.
 //
 
 import Foundation
@@ -16,7 +15,6 @@ class DashboardViewModel: ObservableObject {
     // MARK: - Published Properties
 
     @Published var selectedCategory: DashboardCategory = .today
-    @Published var glanceCards: [GlanceCard] = GlanceCard.placeholders
     @Published var actionFeedItems: [ActionFeedItem] = []
     @Published var suggestions: [Suggestion] = Suggestion.defaults
     @Published var inputText: String = ""
@@ -26,6 +24,7 @@ class DashboardViewModel: ObservableObject {
     // MARK: - Dependencies
 
     private let chatViewModel: ChatViewModel
+    let glanceCardProvider: GlanceCardProvider
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Computed Properties
@@ -33,16 +32,18 @@ class DashboardViewModel: ObservableObject {
     /// Glance cards filtered by the selected category tab
     var filteredGlanceCards: [GlanceCard] {
         if selectedCategory == .today {
-            return glanceCards
+            return glanceCardProvider.cards
         }
-        return glanceCards.filter { $0.category == selectedCategory }
+        return glanceCardProvider.cards.filter { $0.category == selectedCategory }
     }
 
     // MARK: - Initialization
 
-    init(chatViewModel: ChatViewModel) {
+    init(chatViewModel: ChatViewModel, glanceCardProvider: GlanceCardProvider) {
         self.chatViewModel = chatViewModel
+        self.glanceCardProvider = glanceCardProvider
         bindToChatViewModel()
+        bindToGlanceCardProvider()
     }
 
     // MARK: - Public Methods
@@ -81,6 +82,31 @@ class DashboardViewModel: ObservableObject {
         await sendMessage()
     }
 
+    /// Send a message with an attached screenshot (triggered by ⌘+Shift+Z)
+    func sendScreenshotMessage(imageBase64: String) async {
+        let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        inputText = ""
+        isLoading = true
+        errorMessage = nil
+
+        let feedItemId = UUID()
+        let feedItem = ActionFeedItem(
+            id: feedItemId,
+            title: "Analyzing your screen...",
+            subtitle: text.isEmpty ? "Looking at what's on screen" : text,
+            status: .inProgress
+        )
+        actionFeedItems.insert(feedItem, at: 0)
+
+        await chatViewModel.sendMessageWithScreenshot(
+            text: text,
+            imageBase64: imageBase64
+        )
+
+        updateFeedItem(feedItemId)
+        isLoading = false
+    }
+
     /// Dismiss an action feed item
     func dismissFeedItem(_ id: UUID) {
         withAnimation {
@@ -96,11 +122,40 @@ class DashboardViewModel: ObservableObject {
 
     // MARK: - Private Helpers
 
+    private func bindToGlanceCardProvider() {
+        glanceCardProvider.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        // Start auto-refresh
+        glanceCardProvider.startAutoRefresh()
+    }
+
     private func bindToChatViewModel() {
         chatViewModel.$errorMessage
             .receive(on: RunLoop.main)
             .sink { [weak self] error in
                 self?.errorMessage = error
+            }
+            .store(in: &cancellables)
+
+        // Observe tool action updates for real-time UI feedback
+        chatViewModel.$currentToolAction
+            .receive(on: RunLoop.main)
+            .sink { [weak self] action in
+                guard let self = self,
+                      let action = action,
+                      let firstInProgress = self.actionFeedItems.firstIndex(where: { $0.status == .inProgress }) else { return }
+                let item = self.actionFeedItems[firstInProgress]
+                self.actionFeedItems[firstInProgress] = ActionFeedItem(
+                    id: item.id,
+                    title: action,
+                    subtitle: item.subtitle,
+                    status: .inProgress
+                )
             }
             .store(in: &cancellables)
     }

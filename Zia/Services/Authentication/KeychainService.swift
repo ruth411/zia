@@ -2,64 +2,116 @@
 //  KeychainService.swift
 //  Zia
 //
-//  Created by Claude on 2/13/26.
 //
 
 import Foundation
 import Security
 
-/// Secure storage for OAuth tokens and sensitive data using macOS Keychain
+/// Secure storage for OAuth tokens and sensitive data using macOS Keychain.
+/// All data is stored as kSecClassGenericPassword entries scoped to this app's bundle identifier.
 class KeychainService {
 
     // MARK: - Properties
 
     private let serviceName = Configuration.App.bundleIdentifier
 
-    // MARK: - Token Storage (UserDefaults — avoids Keychain password prompts during development)
+    // MARK: - Token Storage
 
-    /// Save OAuth token
+    /// Save an OAuth token to the Keychain.
     func saveToken(_ token: OAuthToken, for service: String) throws {
-        let key = "\(serviceName).oauth_token_\(service)"
         let data = try JSONEncoder().encode(token)
-        UserDefaults.standard.set(data, forKey: key)
-        print("✅ Token saved for \(service)")
+        try saveData(data, forKey: "oauth_token_\(service)")
     }
 
-    /// Retrieve OAuth token
+    /// Retrieve an OAuth token from the Keychain.
     func retrieveToken(for service: String) throws -> OAuthToken? {
-        let key = "\(serviceName).oauth_token_\(service)"
-        guard let data = UserDefaults.standard.data(forKey: key) else {
-            return nil
-        }
+        guard let data = try retrieveData(forKey: "oauth_token_\(service)") else { return nil }
         return try JSONDecoder().decode(OAuthToken.self, from: data)
     }
 
-    /// Delete OAuth token
+    /// Delete an OAuth token from the Keychain.
     func deleteToken(for service: String) throws {
-        let key = "\(serviceName).oauth_token_\(service)"
-        UserDefaults.standard.removeObject(forKey: key)
-        print("✅ Token deleted for \(service)")
+        try deleteData(forKey: "oauth_token_\(service)")
     }
 
-    // MARK: - Generic String Storage (UserDefaults — avoids Keychain password prompts during development)
+    // MARK: - Generic String Storage
 
-    /// Save a string using UserDefaults (no password prompt)
+    /// Save a string value to the Keychain.
     func saveString(_ value: String, for key: String) throws {
-        let storageKey = "\(serviceName).\(key)"
-        UserDefaults.standard.set(value, forKey: storageKey)
-        print("✅ String saved for key: \(key)")
+        guard let data = value.data(using: .utf8) else {
+            throw KeychainError.invalidData
+        }
+        try saveData(data, forKey: key)
     }
 
-    /// Retrieve a string from UserDefaults
+    /// Retrieve a string value from the Keychain.
     func retrieveString(for key: String) throws -> String? {
-        let storageKey = "\(serviceName).\(key)"
-        return UserDefaults.standard.string(forKey: storageKey)
+        guard let data = try retrieveData(forKey: key) else { return nil }
+        guard let string = String(data: data, encoding: .utf8) else {
+            throw KeychainError.invalidData
+        }
+        return string
     }
 
-    /// Delete a string from UserDefaults
+    /// Delete a string value from the Keychain.
     func deleteString(for key: String) throws {
-        let storageKey = "\(serviceName).\(key)"
-        UserDefaults.standard.removeObject(forKey: storageKey)
+        try deleteData(forKey: key)
+    }
+
+    // MARK: - Private Keychain Primitives
+
+    private func saveData(_ data: Data, forKey key: String) throws {
+        let query: [String: Any] = [
+            kSecClass as String:            kSecClassGenericPassword,
+            kSecAttrService as String:      serviceName,
+            kSecAttrAccount as String:      key,
+            kSecValueData as String:        data,
+            kSecAttrAccessible as String:   kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        ]
+
+        // Always delete existing item first to avoid errSecDuplicateItem
+        SecItemDelete(query as CFDictionary)
+
+        let status = SecItemAdd(query as CFDictionary, nil)
+        guard status == errSecSuccess else {
+            throw KeychainError.saveFailed(status)
+        }
+    }
+
+    private func retrieveData(forKey key: String) throws -> Data? {
+        let query: [String: Any] = [
+            kSecClass as String:       kSecClassGenericPassword,
+            kSecAttrService as String: serviceName,
+            kSecAttrAccount as String: key,
+            kSecReturnData as String:  true,
+            kSecMatchLimit as String:  kSecMatchLimitOne
+        ]
+
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+
+        switch status {
+        case errSecSuccess:
+            return result as? Data
+        case errSecItemNotFound:
+            return nil
+        default:
+            throw KeychainError.retrieveFailed(status)
+        }
+    }
+
+    private func deleteData(forKey key: String) throws {
+        let query: [String: Any] = [
+            kSecClass as String:       kSecClassGenericPassword,
+            kSecAttrService as String: serviceName,
+            kSecAttrAccount as String: key
+        ]
+
+        let status = SecItemDelete(query as CFDictionary)
+        // errSecItemNotFound is acceptable — item may not exist
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw KeychainError.deleteFailed(status)
+        }
     }
 }
 

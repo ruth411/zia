@@ -27,7 +27,7 @@
 	<array>
 		<dict>
 			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
+			<string>Viewer</string>
 			<key>CFBundleURLName</key>
 			<string>com.ruthwikdovala.Zia</string>
 			<key>CFBundleURLSchemes</key>
@@ -44,6 +44,18 @@
 	<key>NSRemindersUsageDescription</key>
 	<string>Zia needs access to your reminders to create and manage tasks.</string>
 
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Zia needs permission to run AppleScript to control other applications on your behalf.</string>
+
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>Zia captures your screen when you press ⌘+Shift+Z so it can see and analyze what you're looking at.</string>
+
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Zia uses on-device speech recognition for voice input so you can talk to it hands-free.</string>
+
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Zia needs microphone access for voice input when you tap the mic button.</string>
+
 	<!-- App Transport Security (allow HTTPS connections) -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
@@ -55,8 +67,8 @@
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
 
-	<!-- UI Element (hide from dock by default - handled in code) -->
+	<!-- UI Element: hide from Dock and app switcher (menu bar app) -->
 	<key>LSUIElement</key>
-	<false/>
+	<true/>
 </dict>
 </plist>

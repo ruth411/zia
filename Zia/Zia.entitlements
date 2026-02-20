@@ -9,5 +9,9 @@
 	<!-- Calendar Access (for Apple Calendar integration) -->
 	<key>com.apple.security.personal-information.calendars</key>
 	<true/>
+
+	<!-- Reminders Access (for Apple Reminders integration) -->
+	<key>com.apple.security.personal-information.reminders</key>
+	<true/>
 </dict>
 </plist>

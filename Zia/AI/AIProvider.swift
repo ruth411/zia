@@ -2,7 +2,6 @@
 //  AIProvider.swift
 //  Zia
 //
-//  Created by Claude on 2/14/26.
 //
 
 import Foundation

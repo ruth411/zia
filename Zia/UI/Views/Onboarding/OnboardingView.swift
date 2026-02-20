@@ -2,7 +2,6 @@
 //  OnboardingView.swift
 //  Zia
 //
-//  Created by Claude on 2/14/26.
 //
 
 import SwiftUI
@@ -31,15 +30,18 @@ struct OnboardingView: View {
                 case .welcome:
                     WelcomeStepView(onNext: { currentStep = .login })
                 case .login:
-                    LoginStepView(
-                        authService: DependencyContainer.shared.backendAuthService,
+                    APIKeyStepView(
                         onNext: { currentStep = .spotify }
                     )
                 case .spotify:
                     SpotifyStepView(viewModel: viewModel, onNext: { currentStep = .completion })
                 case .completion:
                     CompletionStepView(viewModel: viewModel, onFinish: {
-                        Configuration.Onboarding.markCompleted()
+                        // Only mark onboarding complete if an API key was actually saved
+                        let hasAPIKey = (try? DependencyContainer.shared.keychainService.retrieveString(for: Configuration.Keys.Keychain.claudeAPIKey)) != nil
+                        if hasAPIKey {
+                            Configuration.Onboarding.markCompleted()
+                        }
                         onComplete()
                     })
                 }
@@ -92,10 +94,10 @@ class OnboardingViewModel: ObservableObject {
 
     // MARK: - Methods
 
-    /// Save Spotify credentials to local storage
+    /// Save Spotify credentials to Keychain (secrets must not live in UserDefaults)
     func saveSpotifyCredentials() {
-        let bundleID = Configuration.App.bundleIdentifier
-        UserDefaults.standard.set(spotifyClientID, forKey: "\(bundleID).spotify_client_id")
-        UserDefaults.standard.set(spotifyClientSecret, forKey: "\(bundleID).spotify_client_secret")
+        let keychain = DependencyContainer.shared.keychainService
+        try? keychain.saveString(spotifyClientID, for: Configuration.Keys.Keychain.spotifyClientID)
+        try? keychain.saveString(spotifyClientSecret, for: Configuration.Keys.Keychain.spotifyClientSecret)
     }
 }

@@ -2,7 +2,6 @@
 //  ActionFeedView.swift
 //  Zia
 //
-//  Created by Claude on 2/14/26.
 //
 
 import SwiftUI
@@ -57,8 +56,8 @@ struct ActionFeedItemView: View {
 
                 Spacer()
 
-                Button(action: item.status == .inProgress ? {} : onDismiss) {
-                    Text(item.status == .inProgress ? "Action" : "Close")
+                Button(action: onDismiss) {
+                    Text(item.status == .inProgress ? "Working..." : "Close")
                         .font(.system(size: 10, weight: .medium))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
@@ -66,13 +65,14 @@ struct ActionFeedItemView: View {
                         .cornerRadius(6)
                 }
                 .buttonStyle(.plain)
+                .disabled(item.status == .inProgress)
             }
 
             // Completed status
             if item.status == .completed && !item.bulletPoints.isEmpty {
                 Divider()
 
-                Text("Done Completed")
+                Text("Completed")
                     .font(.system(size: 10))
                     .foregroundColor(.green)
 

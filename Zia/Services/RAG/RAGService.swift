@@ -2,7 +2,6 @@
 //  RAGService.swift
 //  Zia
 //
-//  Created by Claude on 2/14/26.
 //
 
 import Foundation
@@ -71,7 +70,11 @@ class RAGService {
                 let conversations = (try? store.loadAll()) ?? []
                 if !conversations.isEmpty {
                     print("RAG: Auto-reindexing \(conversations.count) existing conversations...")
-                    try? reindexAll(conversationStore: store)
+                    do {
+                        try reindexAll(conversationStore: store)
+                    } catch {
+                        print("RAG: Auto-reindex failed: \(error)")
+                    }
                 }
             }
         }

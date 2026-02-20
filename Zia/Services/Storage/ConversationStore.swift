@@ -2,7 +2,6 @@
 //  ConversationStore.swift
 //  Zia
 //
-//  Created by Claude on 2/14/26.
 //
 
 import Foundation
@@ -52,9 +51,12 @@ class ConversationStore {
 
         var conversations: [Conversation] = []
         for file in files {
-            if let data = try? Data(contentsOf: file),
-               let conversation = try? JSONDecoder().decode(Conversation.self, from: data) {
+            do {
+                let data = try Data(contentsOf: file)
+                let conversation = try JSONDecoder().decode(Conversation.self, from: data)
                 conversations.append(conversation)
+            } catch {
+                print("ConversationStore: Skipping corrupt file \(file.lastPathComponent): \(error)")
             }
         }
 

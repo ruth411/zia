@@ -2,11 +2,11 @@
 //  SettingsView.swift
 //  Zia
 //
-//  Created by Claude on 2/13/26.
 //
 
 import SwiftUI
 import Combine
+import ServiceManagement
 
 struct SettingsView: View {
 
@@ -20,6 +20,7 @@ struct SettingsView: View {
 
     @State private var showingError = false
     @State private var errorMessage = ""
+    @State private var showingUninstall = false
 
     // MARK: - Initialization
 
@@ -39,6 +40,11 @@ struct SettingsView: View {
             // Content
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+                    // General section
+                    generalSection
+
+                    Divider()
+
                     // Account section
                     appleAccountSection
 
@@ -49,6 +55,11 @@ struct SettingsView: View {
 
                     Divider()
 
+                    // MCP Servers section
+                    mcpSection
+
+                    Divider()
+
                     // Data & Privacy section
                     dataSection
 
@@ -56,6 +67,11 @@ struct SettingsView: View {
 
                     // About section
                     aboutSection
+
+                    Divider()
+
+                    // Uninstall section
+                    uninstallSection
                 }
                 .padding()
             }
@@ -85,67 +101,60 @@ struct SettingsView: View {
         .padding()
     }
 
+    private var generalSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("General")
+                .font(.headline)
+
+            Toggle("Launch Zia at Login", isOn: Binding(
+                get: { viewModel.launchAtLogin },
+                set: { viewModel.setLaunchAtLogin($0) }
+            ))
+            .toggleStyle(.switch)
+
+            Text("Zia will start automatically when you log in.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(8)
+    }
+
     private var appleAccountSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Account")
+            Text("API Key")
                 .font(.headline)
 
             HStack(spacing: 12) {
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.system(size: 36))
-                    .foregroundColor(viewModel.isBackendLoggedIn ? .blue : .gray)
+                Image(systemName: viewModel.hasAPIKey ? "key.fill" : "key")
+                    .font(.system(size: 28))
+                    .foregroundColor(viewModel.hasAPIKey ? .blue : .gray)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    if let user = viewModel.backendUser {
-                        Text(user.name ?? user.email)
-                            .font(.subheadline.weight(.medium))
-                        Text(user.email)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    } else {
-                        Text("Not signed in")
-                            .font(.subheadline.weight(.medium))
-                        Text("Log in to enable cloud features")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                    Text(viewModel.hasAPIKey ? "Anthropic API Key configured" : "No API key set")
+                        .font(.subheadline.weight(.medium))
+                    Text(viewModel.hasAPIKey
+                         ? "Your key is stored securely in Keychain"
+                         : "Add your key in onboarding to use Zia")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
 
                 Spacer()
 
-                if viewModel.isBackendLoggedIn {
-                    Button("Log Out") {
-                        viewModel.logOutBackend()
+                if viewModel.hasAPIKey {
+                    Button("Reset Key") {
+                        viewModel.resetAPIKey()
                     }
                     .buttonStyle(.bordered)
                     .tint(.red)
-                } else {
-                    Button("Log In") {
-                        viewModel.showLoginSheet = true
-                    }
-                    .buttonStyle(.borderedProminent)
                 }
             }
             .padding()
             .background(Color(NSColor.controlBackgroundColor))
             .cornerRadius(8)
         }
-        .sheet(isPresented: $viewModel.showLoginSheet) {
-            loginSheet
-        }
-    }
-
-    private var loginSheet: some View {
-        VStack {
-            LoginStepView(
-                authService: DependencyContainer.shared.backendAuthService,
-                onNext: {
-                    viewModel.showLoginSheet = false
-                    viewModel.refreshBackendUser()
-                }
-            )
-        }
-        .frame(width: 360, height: 480)
     }
 
     private var accountsSection: some View {
@@ -259,6 +268,92 @@ struct SettingsView: View {
         .cornerRadius(8)
     }
 
+    private var mcpSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("MCP Servers")
+                .font(.headline)
+
+            let mcpServers = Array(DependencyContainer.shared.mcpClientManager.servers.values)
+
+            if mcpServers.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("No MCP servers configured")
+                        .font(.subheadline.weight(.medium))
+                    Text("Add servers to ~/.zia/mcp.json to extend Zia with additional tools.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(8)
+            } else {
+                ForEach(mcpServers) { server in
+                    HStack(spacing: 12) {
+                        Image(systemName: mcpServerIcon(for: server.state))
+                            .foregroundColor(mcpServerColor(for: server.state))
+                            .frame(width: 24)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(server.name)
+                                .font(.subheadline.weight(.medium))
+                            Text(mcpServerSubtitle(for: server))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+
+                        if server.state == .connected {
+                            Text("\(server.toolCount) tools")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(8)
+                }
+            }
+
+            Button("Reload MCP Config") {
+                Task { @MainActor in
+                    await DependencyContainer.shared.mcpClientManager.reloadConfig()
+                    DependencyContainer.shared.mcpClientManager.registerTools(
+                        in: DependencyContainer.shared.toolRegistry
+                    )
+                }
+            }
+            .buttonStyle(.bordered)
+        }
+    }
+
+    private func mcpServerIcon(for state: MCPServerState) -> String {
+        switch state {
+        case .connected: return "checkmark.circle.fill"
+        case .connecting: return "arrow.clockwise.circle"
+        case .disconnected: return "circle"
+        case .failed: return "exclamationmark.circle.fill"
+        }
+    }
+
+    private func mcpServerColor(for state: MCPServerState) -> Color {
+        switch state {
+        case .connected: return .green
+        case .connecting: return .orange
+        case .disconnected: return .gray
+        case .failed: return .red
+        }
+    }
+
+    private func mcpServerSubtitle(for server: MCPServerStatus) -> String {
+        switch server.state {
+        case .connected: return "Connected"
+        case .connecting: return "Connecting..."
+        case .disconnected: return "Disconnected"
+        case .failed(let msg): return "Error: \(msg.prefix(50))"
+        }
+    }
+
     private var dataSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Data & Privacy")
@@ -334,7 +429,7 @@ struct SettingsView: View {
                     .font(.subheadline)
                     .fontWeight(.medium)
 
-                Text("Version 1.0.0")
+                Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
@@ -342,6 +437,42 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
+        }
+    }
+
+    private var uninstallSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Danger Zone")
+                .font(.headline)
+                .foregroundColor(.red)
+
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Uninstall Zia")
+                        .font(.subheadline.weight(.medium))
+                    Text("Remove the app and all associated data from your Mac.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                Button("Uninstall...") {
+                    showingUninstall = true
+                }
+                .buttonStyle(.bordered)
+                .tint(.red)
+            }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.red.opacity(0.3), lineWidth: 1)
+            )
+        }
+        .sheet(isPresented: $showingUninstall) {
+            UninstallView()
         }
     }
 
@@ -368,7 +499,8 @@ struct SettingsView: View {
 
     private func disconnectSpotify() {
         Task {
-            try? await viewModel.disconnectSpotify()
+            do { try await viewModel.disconnectSpotify() }
+            catch { print("Spotify disconnect failed: \(error)") }
         }
     }
 }
@@ -379,15 +511,27 @@ class SettingsViewModel: ObservableObject {
 
     @Published var isSpotifyConnected = false
     @Published var isConnectingSpotify = false
-    @Published var isBackendLoggedIn = false
-    @Published var backendUser: BackendUser?
-    @Published var showLoginSheet = false
+    @Published var hasAPIKey = false
     @Published var indexedMessageCount: Int = 0
     @Published var indexSizeDisplay: String = "0 KB"
     @Published var isReindexing = false
+    @Published var launchAtLogin: Bool = SMAppService.mainApp.status == .enabled
+
+    func setLaunchAtLogin(_ enabled: Bool) {
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+            launchAtLogin = SMAppService.mainApp.status == .enabled
+        } catch {
+            print("Launch at login error: \(error)")
+        }
+    }
 
     private let authManager: AuthenticationManager
-    private let backendAuthService = DependencyContainer.shared.backendAuthService
+    private let keychainService = DependencyContainer.shared.keychainService
     private let ragService = DependencyContainer.shared.ragService
     private let conversationStore = DependencyContainer.shared.conversationStore
 
@@ -397,9 +541,8 @@ class SettingsViewModel: ObservableObject {
         // Load authentication status
         self.isSpotifyConnected = authManager.isSpotifyAuthenticated
 
-        // Load backend auth status
-        self.isBackendLoggedIn = backendAuthService.isLoggedIn
-        self.backendUser = backendAuthService.currentUser
+        // Check if API key is stored
+        self.hasAPIKey = (try? keychainService.retrieveString(for: Configuration.Keys.Keychain.claudeAPIKey)) != nil
 
         // Load RAG index stats
         loadIndexStats()
@@ -417,15 +560,11 @@ class SettingsViewModel: ObservableObject {
         isSpotifyConnected = false
     }
 
-    func logOutBackend() {
-        backendAuthService.logout()
-        isBackendLoggedIn = false
-        backendUser = nil
-    }
-
-    func refreshBackendUser() {
-        isBackendLoggedIn = backendAuthService.isLoggedIn
-        backendUser = backendAuthService.currentUser
+    func resetAPIKey() {
+        do { try keychainService.deleteString(for: Configuration.Keys.Keychain.claudeAPIKey) }
+        catch { print("Keychain: Failed to delete API key: \(error)") }
+        hasAPIKey = false
+        Configuration.Onboarding.reset()
     }
 
     func resetOnboarding() {
